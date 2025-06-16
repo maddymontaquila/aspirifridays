@@ -1,0 +1,2 @@
+# aspirifridays
+AspiriFridays bingo
