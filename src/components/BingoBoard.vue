@@ -1,64 +1,94 @@
 <template>
   <div class="bingo-container">
-    <div v-if="hasBingo && showInitialCelebration" class="bingo-celebration-overlay" role="alert" aria-live="assertive">
-      <button @click="dismissCelebration" class="close-celebration" aria-label="Close celebration">×</button>
-      <div class="celebration-content">
-        🎉 BINGO! 🎉
-        <span class="sr-only">Congratulations! You got a bingo!</span>
-      </div>
-    </div>
-    
-    <div class="bingo-celebration" role="alert" aria-live="polite">
-      <span v-if="hasBingo && !showInitialCelebration">🎉 BINGO! 🎉</span>
-    </div>
-    
-    <div class="bingo-board" 
-         role="grid" 
-         aria-label="Bingo board - 5 by 5 grid of AspiriFridays moments"
-         @keydown="handleKeydown"
-         @focus="onGridFocus"
-         @blur="onGridBlur"
-         tabindex="0">
-      <div 
-        v-for="(square, index) in currentBoard" 
-        :key="square.id"
-        :class="['bingo-square', { 
-          'marked': square.marked, 
-          'free-space': square.type === 'free',
-          'bingo-line': isPartOfBingo(index),
-          'focused': focusedIndex === index && gridHasFocus
-        }]"
-        :role="square.type === 'free' ? 'gridcell' : 'button'"
-        :aria-pressed="square.type !== 'free' ? square.marked : undefined"
-        :aria-label="getSquareAriaLabel(square, index)"
-        :tabindex="focusedIndex === index ? 0 : -1"
-        @click="toggleSquare(index)"
-        @keydown.enter.prevent="toggleSquare(index)"
-        @keydown.space.prevent="toggleSquare(index)"
-      >
-        <div class="square-content">
-          <img v-if="square.type === 'free'" 
-               src="/assets/aspire-logo-256.png" 
-               alt=".NET Aspire Logo" 
-               class="aspire-logo">
-          <span v-else class="square-text">
-            {{ square.label }}
-          </span>
+    <div class="game-area">
+      <div class="bingo-board" 
+           role="grid" 
+           aria-label="Bingo board - 5 by 5 grid of AspiriFridays moments"
+           @keydown="handleKeydown"
+           @focus="onGridFocus"
+           @blur="onGridBlur"
+           tabindex="0">
+        
+        <div v-if="hasBingo && showInitialCelebration" class="bingo-celebration-overlay" role="alert" aria-live="assertive">
+          <button @click="dismissCelebration" class="close-celebration" aria-label="Close celebration">×</button>
+          <div class="celebration-content">
+            🎉 BINGO! 🎉
+            <span class="sr-only">Congratulations! You got a bingo!</span>
+          </div>
+        </div>
+        
+        <div 
+          v-for="(square, index) in currentBoard" 
+          :key="square.id"
+          :class="['bingo-square', { 
+            'marked': square.marked, 
+            'free-space': square.type === 'free',
+            'bingo-line': isPartOfBingo(index),
+            'focused': focusedIndex === index && gridHasFocus
+          }]"
+          :role="square.type === 'free' ? 'gridcell' : 'button'"
+          :aria-pressed="square.type !== 'free' ? square.marked : undefined"
+          :aria-label="getSquareAriaLabel(square, index)"
+          :tabindex="focusedIndex === index ? 0 : -1"
+          @click="toggleSquare(index)"
+          @keydown.enter.prevent="toggleSquare(index)"
+          @keydown.space.prevent="toggleSquare(index)"
+        >
+          <div class="square-content">
+            <img v-if="square.type === 'free'" 
+                 src="/assets/aspire-logo-256.png" 
+                 alt=".NET Aspire Logo" 
+                 class="aspire-logo">
+            <span v-else class="square-text">
+              {{ square.label }}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
-    
-    <div class="controls">
-      <button @click="resetBoard" 
-              class="reset-btn"
-              aria-label="Reset and shuffle bingo board with new random squares">
-        🔄 New Board
-      </button>
-      <button @click="downloadImage" 
-              class="download-btn"
-              aria-label="Download an image of the current bingo board for sharing">
-        📸 Download Image
-      </button>
+      
+      <div class="sidebar">
+        <div class="bingo-celebration-area">
+          <div v-if="hasBingo && !showInitialCelebration" class="bingo-celebration" role="alert" aria-live="polite">
+            🎉 BINGO! 🎉
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="resetBoard" 
+                  class="reset-btn"
+                  aria-label="Reset and shuffle bingo board with new random squares">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span>New Board</span>
+          </button>
+          <button @click="downloadImage" 
+                  class="download-btn"
+                  aria-label="Download an image of the current bingo board for sharing">
+            <i class="bi bi-download"></i>
+            <span>Download</span>
+          </button>
+        </div>
+        
+        <div class="aspire-callout">
+          <h3>New to Aspire?</h3>
+          <p>Build observable, production-ready distributed applications with .NET Aspire!</p>
+          <a href="https://aka.ms/dotnet/aspire" target="_blank" rel="noopener noreferrer" class="get-started-btn">
+            Get Started
+          </a>
+          
+          <div class="social-links">
+            <span>Follow us:</span>
+            <a href="https://youtube.com/@aspiredotdev" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+              <i class="bi bi-youtube social-icon"></i>
+            </a>
+            <a href="https://aka.ms/aspire-discord" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+              <i class="bi bi-discord social-icon"></i>
+            </a>
+            <a href="https://github.com/dotnet/aspire" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+              <i class="bi bi-github social-icon"></i>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -341,10 +371,17 @@ export default {
           }
         }
         
-        // Watermark
+        // Date and watermark
         ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
         ctx.font = '12px Rubik, sans-serif'
         ctx.textAlign = 'center'
+        
+        const today = new Date().toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })
+        ctx.fillText(today, 300, 560)
         ctx.fillText('youtube.com/@aspiredotdev', 300, 580)
         
         // Convert to blob and download
@@ -463,6 +500,15 @@ export default {
   position: relative;
 }
 
+.game-area {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+  justify-content: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
 .bingo-board {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -473,6 +519,23 @@ export default {
   box-shadow: 0 8px 32px rgba(155, 93, 229, 0.3);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(155, 93, 229, 0.2);
+  width: 600px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  min-width: 250px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
 }
 
 .bingo-square {
@@ -544,7 +607,6 @@ export default {
   font-weight: 400;
 }
 
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -557,22 +619,25 @@ export default {
   border: 0;
 }
 
-.controls {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  margin-top: 30px;
-}
-
 .reset-btn, .download-btn {
-  padding: 12px 24px;
+  padding: 15px 20px;
   border: none;
-  border-radius: 25px;
+  border-radius: 12px;
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+  justify-content: center;
+}
+
+.reset-btn i, .download-btn i {
+  font-size: 1.3rem;
 }
 
 .reset-btn {
@@ -590,11 +655,93 @@ export default {
   box-shadow: 0 8px 25px rgba(155, 93, 229, 0.3);
 }
 
+.aspire-callout {
+  padding: 25px;
+  background: rgba(155, 93, 229, 0.1);
+  border-radius: 15px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(155, 93, 229, 0.2);
+}
+
+.aspire-callout h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #9B5DE5;
+  margin-bottom: 10px;
+}
+
+.aspire-callout p {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.get-started-btn {
+  display: inline-block;
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #9B5DE5, #7C3AED);
+  color: white;
+  text-decoration: none;
+  border-radius: 25px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+}
+
+.get-started-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(155, 93, 229, 0.4);
+}
+
+.social-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.social-links span {
+  font-family: 'Rubik', sans-serif;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.social-links a {
+  text-decoration: none;
+  transition: transform 0.3s ease;
+  display: inline-block;
+}
+
+.social-links a:hover {
+  transform: scale(1.1);
+}
+
+.social-icon {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s ease;
+}
+
+.social-icon:hover {
+  color: #9B5DE5;
+  transform: scale(1.1);
+}
+
 .bingo-celebration-overlay {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 1000;
   text-align: center;
   font-size: 4rem;
@@ -603,8 +750,7 @@ export default {
   color: #FF1493;
   text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
   background: rgba(0,0,0,0.7);
-  padding: 20px 40px;
-  border-radius: 20px;
+  border-radius: 15px;
   backdrop-filter: blur(10px);
 }
 
@@ -638,18 +784,26 @@ export default {
   transform: scale(1.1);
 }
 
-.bingo-celebration {
-  text-align: center;
-  font-size: 1.5rem;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 600;
-  height: 2rem;
-  margin-bottom: 0.5rem;
-  color: #FF1493;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+.bingo-celebration-area {
+  height: 80px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.bingo-celebration {
+  text-align: center;
+  font-size: 1.8rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  color: #FF1493;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  padding: 15px;
+  background: rgba(255, 20, 147, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 20, 147, 0.2);
+  backdrop-filter: blur(10px);
 }
 
 @keyframes bingo-glow {
@@ -667,9 +821,33 @@ export default {
     padding: 10px;
   }
   
+  .game-area {
+    flex-direction: column;
+    align-items: center;
+  }
+  
   .bingo-board {
     gap: 4px;
     padding: 15px;
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .sidebar {
+    width: 100%;
+    max-width: 400px;
+    gap: 20px;
+  }
+  
+  .controls {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  
+  .reset-btn, .download-btn {
+    min-width: 120px;
+    font-size: 0.9rem;
   }
   
   .square-content {
@@ -681,14 +859,19 @@ export default {
     max-width: 60px;
   }
   
-  .controls {
-    flex-direction: column;
-    align-items: center;
-  }
-  
   .bingo-celebration-overlay {
     font-size: 2.5rem;
     padding: 15px 25px;
+  }
+  
+  .bingo-celebration-area {
+    height: 60px;
+    margin-bottom: 15px;
+  }
+  
+  .bingo-celebration {
+    font-size: 1.4rem;
+    padding: 12px;
   }
 }
 </style>
