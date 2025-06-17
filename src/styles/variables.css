@@ -1,0 +1,63 @@
+/* CSS Custom Properties for consistent theming */
+:root {
+  /* Color Palette */
+  --color-primary: #9B5DE5;
+  --color-primary-dark: #7C3AED;
+  --color-secondary: #FF1493;
+  --color-secondary-light: #FF69B4;
+  --color-accent: #00F5FF;
+  --color-accent-alt: #40E0D0;
+  --color-dark: #2c256b;
+  --color-dark-medium: #1a1a2e;
+  --color-dark-deep: #0f0f23;
+  
+  /* Text Colors */
+  --color-text-primary: white;
+  --color-text-secondary: rgba(255, 255, 255, 0.8);
+  --color-text-muted: rgba(255, 255, 255, 0.7);
+  --color-text-faded: rgba(255, 255, 255, 0.5);
+  
+  /* Background Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  --gradient-secondary: linear-gradient(135deg, var(--color-secondary), var(--color-secondary-light));
+  --gradient-accent: linear-gradient(135deg, var(--color-accent), var(--color-accent-alt));
+  --gradient-background: linear-gradient(135deg, var(--color-dark) 0%, var(--color-dark-medium) 50%, var(--color-dark-deep) 100%);
+  
+  /* Glass Effects */
+  --glass-background: rgba(155, 93, 229, 0.1);
+  --glass-border: 1px solid rgba(155, 93, 229, 0.2);
+  --glass-backdrop: blur(10px);
+  
+  /* Shadows */
+  --shadow-primary: 0 8px 32px rgba(155, 93, 229, 0.3);
+  --shadow-hover: 0 8px 25px rgba(155, 93, 229, 0.4);
+  --shadow-text: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-text-strong: 3px 3px 6px rgba(0, 0, 0, 0.8);
+  
+  /* Typography */
+  --font-primary: 'Outfit', sans-serif;
+  --font-secondary: 'Rubik', sans-serif;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 15px;
+  --spacing-lg: 20px;
+  --spacing-xl: 30px;
+  --spacing-xxl: 40px;
+  
+  /* Border Radius */
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 15px;
+  --radius-xl: 25px;
+  
+  /* Transitions */
+  --transition-default: all 0.3s ease;
+  --transition-transform: transform 0.3s ease;
+  
+  /* Grid */
+  --grid-size: 600px;
+  --grid-gap: 8px;
+  --square-size: calc((var(--grid-size) - 40px) / 5);
+}

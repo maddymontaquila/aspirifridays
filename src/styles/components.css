@@ -1,0 +1,72 @@
+/* Button components */
+.btn {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-primary);
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: var(--transition-default);
+  backdrop-filter: var(--glass-backdrop);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 160px;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn i {
+  font-size: 1.3rem;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.btn--primary {
+  background: var(--gradient-primary);
+  color: var(--color-text-primary);
+}
+
+.btn--accent {
+  background: var(--gradient-accent);
+  color: var(--color-dark);
+}
+
+.btn--secondary {
+  background: var(--gradient-secondary);
+  color: var(--color-text-primary);
+}
+
+.btn--link {
+  display: inline-block;
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  font-weight: 600;
+  transition: var(--transition-default);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Glass card component */
+.glass-card {
+  background: var(--glass-background);
+  border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-backdrop);
+  border: var(--glass-border);
+  box-shadow: var(--shadow-primary);
+}
+
+/* Icon styles */
+.social-icon {
+  font-size: 1.5rem;
+  color: var(--color-text-muted);
+  transition: var(--transition-default);
+}
+
+.social-icon:hover {
+  color: var(--color-primary);
+  transform: scale(1.1);
+}

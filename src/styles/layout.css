@@ -1,0 +1,168 @@
+/* Layout components */
+.game-area {
+  display: flex;
+  gap: var(--spacing-xxl);
+  align-items: flex-start;
+  justify-content: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+  min-width: 250px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+.aspire-callout {
+  padding: 25px;
+  text-align: center;
+}
+
+.aspire-callout h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.aspire-callout p {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-lg);
+  line-height: 1.4;
+}
+
+.social-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+.social-links span {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.social-links a {
+  text-decoration: none;
+  transition: var(--transition-transform);
+  display: inline-block;
+}
+
+.social-links a:hover {
+  transform: scale(1.1);
+}
+
+/* Container styles */
+.bingo-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+  position: relative;
+}
+
+.app {
+  min-height: 100vh;
+  background: var(--gradient-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-secondary);
+  padding: var(--spacing-lg);
+}
+
+header h1 {
+  font-size: 3rem;
+  color: var(--color-primary);
+  text-align: center;
+  margin-bottom: 0.5rem;
+  text-shadow: var(--shadow-text);
+}
+
+.subheading {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: 400;
+}
+
+.subheading a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.subheading a:hover {
+  color: var(--color-secondary);
+  text-decoration: underline;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .bingo-container {
+    padding: var(--spacing-sm);
+  }
+  
+  .game-area {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .bingo-board {
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .sidebar {
+    width: 100%;
+    max-width: 400px;
+    gap: var(--spacing-lg);
+  }
+  
+  .controls {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: var(--spacing-lg);
+  }
+  
+  .btn {
+    min-width: 120px;
+    font-size: 0.9rem;
+  }
+  
+  .square-content {
+    font-size: 0.7rem;
+  }
+  
+  .aspire-logo {
+    width: 50%;
+    max-width: 60px;
+  }
+  
+  .bingo-celebration-overlay {
+    font-size: 2.5rem;
+    padding: var(--spacing-md) 25px;
+  }
+  
+  .bingo-celebration-area {
+    height: 60px;
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .bingo-celebration {
+    font-size: 1.4rem;
+    padding: var(--spacing-md);
+  }
+}
