@@ -1,0 +1,17 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Rubik', sans-serif;
+  background: linear-gradient(135deg, #2c256b 0%, #1a1a2e 50%, #0f0f23 100%);
+  min-height: 100vh;
+  color: white;
+}
+
+#app {
+  min-height: 100vh;
+}
