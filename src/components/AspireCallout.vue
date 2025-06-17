@@ -1,7 +1,7 @@
 <template>
   <div class="aspire-callout glass-card">
     <h3>New to Aspire?</h3>
-    <p>Build observable, production-ready distributed applications with .NET Aspire!</p>
+    <p>Streamline your dev loop with Aspire!</p>
     <a href="https://aka.ms/dotnet/aspire" 
        target="_blank" 
        rel="noopener noreferrer" 
