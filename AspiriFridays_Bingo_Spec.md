@@ -4,8 +4,13 @@
 ## Project Title
 **AspiriFridays Bingo Board**
 
+## Project path
+./src/bingo-board
+
 ## Overview
 A fun, interactive website that displays a bingo board of common or humorous scenarios that tend to happen during an AspiriFridays livestream. Users can watch along and mark squares as they happen. This is meant to be a playful, companion site to the livestreams.
+
+On start, the board will display a randomized set of bingo squares from a predefined pool. Users can click squares to mark them as complete, and the board will indicate when a "Bingo!" is achieved by completing a row, column, or diagonal. Everytime a new session starts, the board will communicate with the adming interface to define the current bingo set. The site will alse receive real-time updates from the admin interface to see if a certain square has been checked or unchecked.
 
 ## Core Features
 

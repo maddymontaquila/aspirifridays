@@ -4,11 +4,13 @@
       'marked': square.marked, 
       'free-space': square.type === 'free',
       'bingo-line': isBingoLine,
-      'focused': isFocused
+      'focused': isFocused,
+      'disabled': disabled
     }]"
     :role="square.type === 'free' ? 'gridcell' : 'button'"
     :aria-pressed="square.type !== 'free' ? square.marked : undefined"
     :aria-label="ariaLabel"
+    :aria-disabled="disabled"
     :tabindex="isFocused ? 0 : -1"
     @click="handleClick"
     @keydown.enter.prevent="handleClick"
@@ -47,6 +49,10 @@ export default {
     isBingoLine: {
       type: Boolean,
       default: false
+    },
+    disabled: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['toggle'],
@@ -57,7 +63,9 @@ export default {
   },
   methods: {
     handleClick() {
-      this.$emit('toggle', this.index)
+      if (!this.disabled) {
+        this.$emit('toggle', this.index)
+      }
     }
   }
 }
