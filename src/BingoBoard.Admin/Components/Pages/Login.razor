@@ -1,0 +1,140 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.OpenIdConnect
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Admin Login</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="logo-section">
+            <img src="/favicon.png" alt="Bingo Admin" class="logo" />
+            <h1>Bingo Admin Portal</h1>
+            <p class="subtitle">Sign in with your Microsoft account to access the admin panel</p>
+        </div>
+        
+        <div class="login-section">
+            <a href="/login" class="btn btn-primary btn-large">
+                <svg class="microsoft-logo" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h11v11H0V0z" fill="#f25022"/>
+                    <path d="M12 0h11v11H12V0z" fill="#00a4ef"/>
+                    <path d="M0 12h11v11H0V12z" fill="#00a4ef"/>
+                    <path d="M12 12h11v11H12V12z" fill="#ffb900"/>
+                </svg>
+                Sign in with Microsoft
+            </a>
+        </div>
+        
+        <div class="info-section">
+            <p class="info-text">
+                <strong>Access Requirements:</strong><br/>
+                • Valid Microsoft account<br/>
+                • Access to tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47<br/>
+                • Admin permissions
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+    }
+
+    .login-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 3rem;
+        max-width: 400px;
+        width: 100%;
+        text-align: center;
+    }
+
+    .logo-section {
+        margin-bottom: 2rem;
+    }
+
+    .logo {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 1rem;
+    }
+
+    .login-card h1 {
+        color: #333;
+        margin-bottom: 0.5rem;
+        font-size: 1.75rem;
+        font-weight: 600;
+    }
+
+    .subtitle {
+        color: #666;
+        margin-bottom: 0;
+        font-size: 0.95rem;
+    }
+
+    .login-section {
+        margin-bottom: 2rem;
+    }
+
+    .btn-large {
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 8px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        transition: all 0.2s ease;
+        border: none;
+        background: #0078d4;
+        color: white;
+        cursor: pointer;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .btn-large:hover {
+        background: #106ebe;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+    }
+
+    .microsoft-logo {
+        width: 20px;
+        height: 20px;
+    }
+
+    .info-section {
+        border-top: 1px solid #eee;
+        padding-top: 1.5rem;
+    }
+
+    .info-text {
+        font-size: 0.85rem;
+        color: #666;
+        line-height: 1.5;
+        text-align: left;
+    }
+
+    .info-text strong {
+        color: #333;
+    }
+</style>
+
+@code {
+    protected override void OnInitialized()
+    {
+        // If user is already authenticated, redirect to home
+        // This will be handled by the authorization middleware
+    }
+}

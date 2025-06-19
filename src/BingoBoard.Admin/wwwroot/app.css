@@ -58,3 +58,52 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* Authentication styles */
+.user-info {
+    color: #495057;
+    font-weight: 500;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-info i {
+    color: #007bff;
+}
+
+.gap-3 {
+    gap: 1rem !important;
+}
+
+/* Unauthorized access styles */
+.unauthorized-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+}
+
+.unauthorized-content {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    padding: 3rem;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+}
+
+.unauthorized-content h1 {
+    color: #333;
+    margin-bottom: 1rem;
+    font-size: 1.75rem;
+}
+
+.unauthorized-content p {
+    color: #666;
+    margin-bottom: 2rem;
+}

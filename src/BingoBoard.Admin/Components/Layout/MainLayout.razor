@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="page">
     <div class="sidebar">
@@ -8,9 +10,29 @@
     <main>
         <div class="top-row px-4 d-flex justify-content-between align-items-center">
             <h4 class="mb-0">🎯 AspiriFridays Bingo Admin</h4>
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank" class="btn btn-outline-secondary btn-sm">
-                <i class="fas fa-external-link-alt"></i> About
-            </a>
+            <div class="d-flex align-items-center gap-3">
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="user-info">
+                            <i class="fas fa-user-circle"></i>
+                            Hello, @context.User.Identity?.Name
+                        </span>
+                        <form method="post" action="/logout" class="d-inline">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-sign-out-alt"></i> Sign Out
+                            </button>
+                        </form>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/login" class="btn btn-primary btn-sm">
+                            <i class="fas fa-sign-in-alt"></i> Sign In
+                        </a>
+                    </NotAuthorized>
+                </AuthorizeView>
+                <a href="https://learn.microsoft.com/aspnet/core/" target="_blank" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-external-link-alt"></i> About
+                </a>
+            </div>
         </div>
 
         <article class="content px-4">
