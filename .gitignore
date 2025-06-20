@@ -85,3 +85,5 @@ Thumbs.db
 *.swp
 *.swo
 REFACTORING_SUMMARY.md
+
+appsettings.Development.json
