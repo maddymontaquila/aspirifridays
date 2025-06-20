@@ -375,6 +375,14 @@ namespace BingoBoard.Admin.Hubs
                     return;
                 }
 
+                // Get all related pending approvals before processing
+                var allPendingApprovals = await _bingoService.GetPendingApprovalsAsync();
+                var relatedApprovals = allPendingApprovals
+                    .Where(a => a.SquareId == approval.SquareId && 
+                               a.RequestedState == approval.RequestedState && 
+                               a.Status == ApprovalStatus.Pending)
+                    .ToList();
+
                 var success = await _bingoService.ApproveSquareRequestAsync(approvalId, adminId);
                 
                 if (success)
@@ -384,17 +392,24 @@ namespace BingoBoard.Admin.Hubs
                     var square = allSquares.FirstOrDefault(s => s.Id == approval.SquareId);
                     var squareLabel = square?.Label ?? approval.SquareId;
 
-                    // Notify the requesting client that their request was approved
-                    await Clients.Client(approval.ClientId).SendAsync("ApprovalRequestApproved", new 
-                    { 
-                        ApprovalId = approvalId,
-                        SquareId = approval.SquareId,
-                        RequestedState = approval.RequestedState,
-                        Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' has been approved!",
-                        Timestamp = DateTime.UtcNow
-                    });
+                    // Notify all clients who had related approval requests
+                    foreach (var relatedApproval in relatedApprovals)
+                    {
+                        await Clients.Client(relatedApproval.ClientId).SendAsync("ApprovalRequestApproved", new 
+                        { 
+                            ApprovalId = relatedApproval.Id,
+                            SquareId = approval.SquareId,
+                            SquareLabel = squareLabel,
+                            NewState = approval.RequestedState,
+                            Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' has been approved!",
+                            Timestamp = DateTime.UtcNow
+                        });
 
-                    // Notify all admin clients about the approval
+                        _logger.LogInformation("Notified client {ClientId} about approved request {ApprovalId}", 
+                            relatedApproval.ClientId, relatedApproval.Id);
+                    }
+
+                    // Notify all admin clients about the approval (using count for clarity)
                     await Clients.Others.SendAsync("ApprovalRequestProcessed", new 
                     { 
                         ApprovalId = approvalId,
@@ -403,10 +418,11 @@ namespace BingoBoard.Admin.Hubs
                         SquareId = approval.SquareId,
                         SquareLabel = squareLabel,
                         RequestedState = approval.RequestedState,
+                        RelatedRequestsCount = relatedApprovals.Count,
                         Timestamp = DateTime.UtcNow
                     });
 
-                    // Send global square update to all clients (including the one who requested it)
+                    // Send global square update to all clients (including the ones who requested it)
                     await Clients.All.SendAsync("GlobalSquareUpdate", new 
                     { 
                         SquareId = approval.SquareId, 
@@ -415,7 +431,8 @@ namespace BingoBoard.Admin.Hubs
                         Message = $"'{squareLabel}' has been {(approval.RequestedState ? "checked" : "unchecked")} by admin approval"
                     });
 
-                    _logger.LogInformation("Approved request {ApprovalId} and sent global update for {SquareId}", approvalId, approval.SquareId);
+                    _logger.LogInformation("Approved {Count} related requests for square {SquareId} and sent global update", 
+                        relatedApprovals.Count, approval.SquareId);
                 }
                 else
                 {
@@ -447,6 +464,14 @@ namespace BingoBoard.Admin.Hubs
                     return;
                 }
 
+                // Get all related pending approvals before processing
+                var allPendingApprovals = await _bingoService.GetPendingApprovalsAsync();
+                var relatedApprovals = allPendingApprovals
+                    .Where(a => a.SquareId == approval.SquareId && 
+                               a.RequestedState == approval.RequestedState && 
+                               a.Status == ApprovalStatus.Pending)
+                    .ToList();
+
                 var success = await _bingoService.DenySquareRequestAsync(approvalId, adminId, reason);
                 
                 if (success)
@@ -456,19 +481,26 @@ namespace BingoBoard.Admin.Hubs
                     var square = allSquares.FirstOrDefault(s => s.Id == approval.SquareId);
                     var squareLabel = square?.Label ?? approval.SquareId;
 
-                    // Notify the requesting client that their request was denied
-                    await Clients.Client(approval.ClientId).SendAsync("ApprovalRequestDenied", new 
-                    { 
-                        ApprovalId = approvalId,
-                        SquareId = approval.SquareId,
-                        RequestedState = approval.RequestedState,
-                        Reason = reason,
-                        Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' was denied" + 
-                                  (string.IsNullOrEmpty(reason) ? "" : $": {reason}"),
-                        Timestamp = DateTime.UtcNow
-                    });
+                    // Notify all clients who had related approval requests
+                    foreach (var relatedApproval in relatedApprovals)
+                    {
+                        await Clients.Client(relatedApproval.ClientId).SendAsync("ApprovalRequestDenied", new 
+                        { 
+                            ApprovalId = relatedApproval.Id,
+                            SquareId = approval.SquareId,
+                            SquareLabel = squareLabel,
+                            RequestedState = approval.RequestedState,
+                            Reason = reason,
+                            Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' was denied" + 
+                                      (string.IsNullOrEmpty(reason) ? "" : $": {reason}"),
+                            Timestamp = DateTime.UtcNow
+                        });
 
-                    // Notify all admin clients about the denial
+                        _logger.LogInformation("Notified client {ClientId} about denied request {ApprovalId}", 
+                            relatedApproval.ClientId, relatedApproval.Id);
+                    }
+
+                    // Notify all admin clients about the denial (using count for clarity)
                     await Clients.Others.SendAsync("ApprovalRequestProcessed", new 
                     { 
                         ApprovalId = approvalId,
@@ -477,11 +509,13 @@ namespace BingoBoard.Admin.Hubs
                         SquareId = approval.SquareId,
                         SquareLabel = squareLabel,
                         RequestedState = approval.RequestedState,
+                        RelatedRequestsCount = relatedApprovals.Count,
                         Reason = reason,
                         Timestamp = DateTime.UtcNow
                     });
 
-                    _logger.LogInformation("Denied request {ApprovalId} by admin {AdminId}", approvalId, adminId);
+                    _logger.LogInformation("Denied {Count} related requests for square {SquareId}", 
+                        relatedApprovals.Count, approval.SquareId);
                 }
                 else
                 {

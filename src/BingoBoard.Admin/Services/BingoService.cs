@@ -354,20 +354,38 @@ namespace BingoBoard.Admin.Services
                     return false;
                 }
 
-                // Update the approval status
-                approval.Status = ApprovalStatus.Approved;
-                approval.ProcessedByAdmin = adminId;
-                approval.ProcessedAt = DateTime.UtcNow;
+                // Find all pending requests for the same square with the same requested state
+                var allPendingApprovals = await GetPendingApprovalsAsync();
+                var relatedApprovals = allPendingApprovals
+                    .Where(a => a.SquareId == approval.SquareId && 
+                               a.RequestedState == approval.RequestedState && 
+                               a.Status == ApprovalStatus.Pending)
+                    .ToList();
 
-                // Save updated approval
-                var cacheKey = $"pending_approval_{approvalId}";
-                var serializedApproval = JsonSerializer.Serialize(approval);
-                await _cache.SetStringAsync(cacheKey, serializedApproval);
+                _logger.LogInformation("Found {Count} related approval requests for square {SquareId}", 
+                    relatedApprovals.Count, approval.SquareId);
 
-                // Apply the change globally to all clients
+                // Process all related approvals
+                foreach (var relatedApproval in relatedApprovals)
+                {
+                    relatedApproval.Status = ApprovalStatus.Approved;
+                    relatedApproval.ProcessedByAdmin = adminId;
+                    relatedApproval.ProcessedAt = DateTime.UtcNow;
+
+                    // Save updated approval
+                    var cacheKey = $"pending_approval_{relatedApproval.Id}";
+                    var serializedApproval = JsonSerializer.Serialize(relatedApproval);
+                    await _cache.SetStringAsync(cacheKey, serializedApproval);
+
+                    _logger.LogInformation("Approved related square request {ApprovalId} for client {ClientId}", 
+                        relatedApproval.Id, relatedApproval.ClientId);
+                }
+
+                // Apply the change globally to all clients (only once)
                 await UpdateSquareGloballyAsync(approval.SquareId, approval.RequestedState);
 
-                _logger.LogInformation("Approved square request {ApprovalId} by admin {AdminId}", approvalId, adminId);
+                _logger.LogInformation("Approved {Count} square requests for square {SquareId} by admin {AdminId}", 
+                    relatedApprovals.Count, approval.SquareId, adminId);
                 return true;
             }
             catch (Exception ex)
@@ -387,18 +405,36 @@ namespace BingoBoard.Admin.Services
                     return false;
                 }
 
-                // Update the approval status
-                approval.Status = ApprovalStatus.Denied;
-                approval.ProcessedByAdmin = adminId;
-                approval.ProcessedAt = DateTime.UtcNow;
-                approval.DenialReason = reason;
+                // Find all pending requests for the same square with the same requested state
+                var allPendingApprovals = await GetPendingApprovalsAsync();
+                var relatedApprovals = allPendingApprovals
+                    .Where(a => a.SquareId == approval.SquareId && 
+                               a.RequestedState == approval.RequestedState && 
+                               a.Status == ApprovalStatus.Pending)
+                    .ToList();
 
-                // Save updated approval
-                var cacheKey = $"pending_approval_{approvalId}";
-                var serializedApproval = JsonSerializer.Serialize(approval);
-                await _cache.SetStringAsync(cacheKey, serializedApproval);
+                _logger.LogInformation("Found {Count} related approval requests to deny for square {SquareId}", 
+                    relatedApprovals.Count, approval.SquareId);
 
-                _logger.LogInformation("Denied square request {ApprovalId} by admin {AdminId}", approvalId, adminId);
+                // Process all related approvals
+                foreach (var relatedApproval in relatedApprovals)
+                {
+                    relatedApproval.Status = ApprovalStatus.Denied;
+                    relatedApproval.ProcessedByAdmin = adminId;
+                    relatedApproval.ProcessedAt = DateTime.UtcNow;
+                    relatedApproval.DenialReason = reason;
+
+                    // Save updated approval
+                    var cacheKey = $"pending_approval_{relatedApproval.Id}";
+                    var serializedApproval = JsonSerializer.Serialize(relatedApproval);
+                    await _cache.SetStringAsync(cacheKey, serializedApproval);
+
+                    _logger.LogInformation("Denied related square request {ApprovalId} for client {ClientId}", 
+                        relatedApproval.Id, relatedApproval.ClientId);
+                }
+
+                _logger.LogInformation("Denied {Count} square requests for square {SquareId} by admin {AdminId}", 
+                    relatedApprovals.Count, approval.SquareId, adminId);
                 return true;
             }
             catch (Exception ex)

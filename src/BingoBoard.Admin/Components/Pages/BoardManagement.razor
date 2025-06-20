@@ -40,31 +40,63 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            @foreach (var approval in pendingApprovals.OrderBy(a => a.RequestedAt))
+                            @foreach (var approvalGroup in pendingApprovals
+                                .GroupBy(a => new { a.SquareId, a.RequestedState })
+                                .OrderBy(g => g.First().RequestedAt))
                             {
+                                var firstApproval = approvalGroup.First();
+                                var requestCount = approvalGroup.Count();
+                                
                                 <div class="col-lg-6 col-md-12 mb-3">
                                     <div class="approval-request-card">
                                         <div class="approval-header">
                                             <span class="badge bg-warning text-dark">PENDING</span>
-                                            <small class="text-muted">@approval.RequestedAt.ToString("HH:mm:ss")</small>
+                                            <small class="text-muted">@firstApproval.RequestedAt.ToString("HH:mm:ss")</small>
                                         </div>
                                         <div class="approval-content">
-                                            <h6 class="mb-2">@approval.SquareLabel</h6>
+                                            <h6 class="mb-2">@firstApproval.SquareLabel</h6>
                                             <p class="mb-2">
-                                                Client wants to <strong>@(approval.RequestedState ? "CHECK" : "UNCHECK")</strong> this square
+                                                @if (requestCount > 1)
+                                                {
+                                                    <text><strong>@requestCount clients</strong> want to <strong>@(firstApproval.RequestedState ? "CHECK" : "UNCHECK")</strong> this square</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>Client wants to <strong>@(firstApproval.RequestedState ? "CHECK" : "UNCHECK")</strong> this square</text>
+                                                }
                                             </p>
-                                            <small class="text-muted">Client ID: @approval.ClientId.Substring(0, Math.Min(8, approval.ClientId.Length))...</small>
+                                            @if (requestCount > 1)
+                                            {
+                                                <small class="text-info mb-2 d-block">
+                                                    <i class="fas fa-info-circle"></i> 
+                                                    Approving/denying will affect all @requestCount requests
+                                                </small>
+                                            }
+                                            <small class="text-muted">
+                                                @if (requestCount == 1)
+                                                {
+                                                    <text>Client ID: @firstApproval.ClientId.Substring(0, Math.Min(8, firstApproval.ClientId.Length))...</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>Multiple clients: @string.Join(", ", approvalGroup.Take(3).Select(a => a.ClientId.Substring(0, Math.Min(6, a.ClientId.Length)) + "..."))</text>
+                                                    @if (requestCount > 3)
+                                                    {
+                                                        <text> and @(requestCount - 3) more</text>
+                                                    }
+                                                }
+                                            </small>
                                         </div>
                                         <div class="approval-actions">
-                                            <button @onclick="async () => await ApproveRequest(approval.Id)" 
+                                            <button @onclick="async () => await ApproveRequest(firstApproval.Id)" 
                                                     class="btn btn-success btn-sm me-2"
                                                     disabled="@isProcessingApproval">
-                                                <i class="fas fa-check"></i> Approve
+                                                <i class="fas fa-check"></i> Approve @(requestCount > 1 ? $"All ({requestCount})" : "")
                                             </button>
-                                            <button @onclick="() => ShowDenyModal(approval)" 
+                                            <button @onclick="() => ShowDenyModal(firstApproval)" 
                                                     class="btn btn-danger btn-sm"
                                                     disabled="@isProcessingApproval">
-                                                <i class="fas fa-times"></i> Deny
+                                                <i class="fas fa-times"></i> Deny @(requestCount > 1 ? $"All ({requestCount})" : "")
                                             </button>
                                         </div>
                                     </div>
@@ -209,6 +241,18 @@
                 <div class="modal-body">
                     <p><strong>Square:</strong> @currentApprovalForDenial.SquareLabel</p>
                     <p><strong>Action:</strong> @(currentApprovalForDenial.RequestedState ? "Check" : "Uncheck")</p>
+                    @{
+                        var relatedCount = pendingApprovals.Count(a => 
+                            a.SquareId == currentApprovalForDenial.SquareId && 
+                            a.RequestedState == currentApprovalForDenial.RequestedState);
+                    }
+                    @if (relatedCount > 1)
+                    {
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Note:</strong> This will deny all @relatedCount requests for this action on this square.
+                        </div>
+                    }
                     <div class="mb-3">
                         <label for="denyReason" class="form-label">Reason for denial (optional):</label>
                         <textarea @bind="denyReason" id="denyReason" class="form-control" rows="3" 
@@ -359,11 +403,23 @@
                     string status = data.Status?.ToString() ?? "";
                     string squareLabel = data.SquareLabel?.ToString() ?? "";
                     string approvalId = data.ApprovalId?.ToString() ?? "";
+                    int relatedRequestsCount = data.RelatedRequestsCount ?? 1;
                     
-                    AddToLog($"Approval request {status.ToLower()}: {squareLabel}");
+                    var countMessage = relatedRequestsCount > 1 ? $" ({relatedRequestsCount} related requests)" : "";
+                    AddToLog($"Approval request {status.ToLower()}: {squareLabel}{countMessage}");
                     
-                    // Remove the processed approval from local list immediately
-                    pendingApprovals.RemoveAll(a => a.Id == approvalId);
+                    // Remove all processed approvals from local list immediately
+                    // Since multiple related requests were processed, remove all for the same square/state
+                    var squareId = data.SquareId?.ToString() ?? "";
+                    var requestedState = data.RequestedState ?? false;
+                    
+                    var removedCount = pendingApprovals.RemoveAll(a => 
+                        a.SquareId == squareId && a.RequestedState == requestedState);
+                    
+                    if (removedCount > 0)
+                    {
+                        Console.WriteLine($"[Admin] Removed {removedCount} related pending approvals for square {squareId}");
+                    }
                     
                     // Refresh to get the latest state from server
                     await LoadPendingApprovals();
