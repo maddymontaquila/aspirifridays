@@ -306,6 +306,12 @@ namespace BingoBoard.Admin.Services
                 new() { Id = "coffee-mention", Label = "Coffee mentioned", Type = "meta" },
                 new() { Id = "github-issues", Label = "GitHub issues discussion", Type = "dev" },
                 new() { Id = "demo-gods", Label = "\"Demo gods\" mentioned", Type = "quote" }
+                ,
+                new() { Id = "fowler-monorepo", Label = "Fowler advocates monorepo", Type = "dev" },
+                new() { Id = "private-key-shared", Label = "Someone shares a private key", Type = "oops" },
+                new() { Id = "one-line-add", Label = "\"It's one line, so let's add it\"", Type = "quote" },
+                new() { Id = "one-day-work", Label = "\"One day, that'll work\"", Type = "quote" },
+                new() { Id = "maddy-snack", Label = "Maddy eats a snack live", Type = "meta" }
             };
         }
     }
