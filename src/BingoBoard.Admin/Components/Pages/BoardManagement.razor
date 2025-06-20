@@ -17,9 +17,65 @@
             <h1 class="mb-4">
                 <i class="fas fa-th-large"></i> Board Management
             </h1>
-            <p class="text-muted">Manage all available bingo squares. Check/uncheck squares globally to update all connected clients.</p>
+            <p class="text-muted">Manage all available bingo squares and approve client requests.</p>
         </div>
     </div>
+
+    <!-- Pending Approval Requests Section -->
+    @if (pendingApprovals.Any())
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-clock"></i> Pending Approval Requests
+                                <span class="badge bg-dark ms-2">@pendingApprovals.Count</span>
+                            </h5>
+                            <button @onclick="LoadPendingApprovals" class="btn btn-outline-dark btn-sm">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach (var approval in pendingApprovals.OrderBy(a => a.RequestedAt))
+                            {
+                                <div class="col-lg-6 col-md-12 mb-3">
+                                    <div class="approval-request-card">
+                                        <div class="approval-header">
+                                            <span class="badge bg-warning text-dark">PENDING</span>
+                                            <small class="text-muted">@approval.RequestedAt.ToString("HH:mm:ss")</small>
+                                        </div>
+                                        <div class="approval-content">
+                                            <h6 class="mb-2">@approval.SquareLabel</h6>
+                                            <p class="mb-2">
+                                                Client wants to <strong>@(approval.RequestedState ? "CHECK" : "UNCHECK")</strong> this square
+                                            </p>
+                                            <small class="text-muted">Client ID: @approval.ClientId.Substring(0, Math.Min(8, approval.ClientId.Length))...</small>
+                                        </div>
+                                        <div class="approval-actions">
+                                            <button @onclick="async () => await ApproveRequest(approval.Id)" 
+                                                    class="btn btn-success btn-sm me-2"
+                                                    disabled="@isProcessingApproval">
+                                                <i class="fas fa-check"></i> Approve
+                                            </button>
+                                            <button @onclick="() => ShowDenyModal(approval)" 
+                                                    class="btn btn-danger btn-sm"
+                                                    disabled="@isProcessingApproval">
+                                                <i class="fas fa-times"></i> Deny
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
     <div class="row">
         <div class="col-12">
@@ -56,22 +112,40 @@
                         <div class="row">
                             @foreach (var square in displaySquares.OrderBy(s => s.Type).ThenBy(s => s.Label))
                             {
+                                var hasPendingRequest = pendingApprovals.Any(p => p.SquareId == square.Id);
+                                var pendingRequest = pendingApprovals.FirstOrDefault(p => p.SquareId == square.Id);
+                                
                                 <div class="col-lg-4 col-md-6 mb-3">
-                                    <div class="square-card @(square.IsChecked ? "square-checked" : "") @GetSquareTypeClass(square.Type)"
+                                    <div class="square-card @(square.IsChecked ? "square-checked" : "") @GetSquareTypeClass(square.Type) @(hasPendingRequest ? "square-pending-approval" : "")"
                                          @onclick="async () => await ToggleSquareGlobally(square.Id, !square.IsChecked)">
                                         <div class="square-header">
                                             <span class="square-type badge">@square.Type</span>
-                                            @if (square.IsChecked)
-                                            {
-                                                <i class="fas fa-check-circle text-success"></i>
-                                            }
-                                            else
-                                            {
-                                                <i class="far fa-circle text-muted"></i>
-                                            }
+                                            <div class="square-status">
+                                                @if (hasPendingRequest)
+                                                {
+                                                    <i class="fas fa-clock text-warning me-1" title="Pending approval request"></i>
+                                                }
+                                                @if (square.IsChecked)
+                                                {
+                                                    <i class="fas fa-check-circle text-success"></i>
+                                                }
+                                                else
+                                                {
+                                                    <i class="far fa-circle text-muted"></i>
+                                                }
+                                            </div>
                                         </div>
                                         <div class="square-content">
                                             <p class="square-text">@square.Label</p>
+                                            @if (hasPendingRequest && pendingRequest != null)
+                                            {
+                                                <div class="pending-indicator">
+                                                    <small class="text-warning">
+                                                        <i class="fas fa-clock"></i>
+                                                        Request to @(pendingRequest.RequestedState ? "CHECK" : "UNCHECK")
+                                                    </small>
+                                                </div>
+                                            }
                                             <small class="square-id text-muted">ID: @square.Id</small>
                                         </div>
                                     </div>
@@ -122,14 +196,50 @@
     </div>
 </div>
 
+<!-- Deny Request Modal -->
+@if (showDenyModalDialog && currentApprovalForDenial != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Deny Approval Request</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDenyModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Square:</strong> @currentApprovalForDenial.SquareLabel</p>
+                    <p><strong>Action:</strong> @(currentApprovalForDenial.RequestedState ? "Check" : "Uncheck")</p>
+                    <div class="mb-3">
+                        <label for="denyReason" class="form-label">Reason for denial (optional):</label>
+                        <textarea @bind="denyReason" id="denyReason" class="form-control" rows="3" 
+                                  placeholder="Provide a reason for denying this request..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelDenyModal">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="DenyRequest" disabled="@isProcessingApproval">
+                        <i class="fas fa-times"></i> Deny Request
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private HubConnection? hubConnection;
     private List<BingoSquare> allSquares = new();
     private List<BingoSquare> displaySquares = new();
     private List<string> globallyCheckedSquares = new();
     private List<ActivityLogEntry> activityLog = new();
+    private List<PendingApproval> pendingApprovals = new();
     private bool isLoading = true;
     private bool showCheckedOnly = false;
+    private bool isProcessingApproval = false;
+    private bool showDenyModalDialog = false;
+    private PendingApproval? currentApprovalForDenial = null;
+    private string denyReason = "";
+    private Timer? refreshTimer;
 
     public class ActivityLogEntry
     {
@@ -216,9 +326,97 @@
             });
         });
 
+        // Approval workflow event handlers
+        hubConnection.On<dynamic>("NewApprovalRequest", (data) =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                try
+                {
+                    string squareLabel = data.SquareLabel?.ToString() ?? "";
+                    AddToLog($"New approval request for square: {squareLabel}");
+                    
+                    // Immediately refresh pending approvals to get real-time update
+                    await LoadPendingApprovals();
+                    
+                    // Also update the display squares to show pending indicators
+                    UpdateDisplaySquares();
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    AddToLog($"Error processing new approval request: {ex.Message}");
+                }
+            });
+        });
+
+        hubConnection.On<dynamic>("ApprovalRequestProcessed", (data) =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                try
+                {
+                    string status = data.Status?.ToString() ?? "";
+                    string squareLabel = data.SquareLabel?.ToString() ?? "";
+                    string approvalId = data.ApprovalId?.ToString() ?? "";
+                    
+                    AddToLog($"Approval request {status.ToLower()}: {squareLabel}");
+                    
+                    // Remove the processed approval from local list immediately
+                    pendingApprovals.RemoveAll(a => a.Id == approvalId);
+                    
+                    // Refresh to get the latest state from server
+                    await LoadPendingApprovals();
+                    
+                    // If approved, refresh the squares to show updated states
+                    if (status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await LoadGloballyCheckedSquares();
+                    }
+                    
+                    // Update display squares to remove pending indicators
+                    UpdateDisplaySquares();
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    AddToLog($"Error processing approval status update: {ex.Message}");
+                }
+            });
+        });
+
+        hubConnection.On<List<PendingApproval>>("PendingApprovalsList", (approvals) =>
+        {
+            _ = InvokeAsync(() =>
+            {
+                Console.WriteLine($"[Admin] PendingApprovalsList received: {approvals?.Count ?? 0} approvals at {DateTime.Now:HH:mm:ss}");
+                pendingApprovals = approvals ?? new List<PendingApproval>();
+                UpdateDisplaySquares(); // Update squares to show/hide pending indicators
+                StateHasChanged();
+                AddToLog($"Loaded {pendingApprovals.Count} pending approval requests");
+            });
+        });
+
         await hubConnection.StartAsync();
         await LoadAllSquares();
         await LoadGloballyCheckedSquares();
+        await LoadPendingApprovals();
+
+        // Set up periodic refresh timer for pending approvals (every 10 seconds as fallback)
+        refreshTimer = new Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadPendingApprovals();
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Timer refresh error: {ex.Message}");
+            }
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
     }
 
     private async Task LoadAllSquares()
@@ -293,6 +491,118 @@
         }
     }
 
+    private async Task LoadPendingApprovals()
+    {
+        if (hubConnection == null) return;
+
+        try
+        {
+            Console.WriteLine($"[Admin] LoadPendingApprovals called at {DateTime.Now:HH:mm:ss}");
+            await hubConnection.SendAsync("GetPendingApprovals");
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error loading pending approvals: {ex.Message}");
+            Console.WriteLine($"[Admin] Error loading pending approvals: {ex.Message}");
+        }
+    }
+
+    private async Task ApproveRequest(string approvalId)
+    {
+        if (hubConnection == null || isProcessingApproval) return;
+
+        try
+        {
+            isProcessingApproval = true;
+            StateHasChanged();
+
+            await hubConnection.SendAsync("ApproveSquareRequest", approvalId);
+            AddToLog($"Approved request: {approvalId}");
+
+            // Immediately remove from local list for instant UI feedback
+            pendingApprovals.RemoveAll(a => a.Id == approvalId);
+            UpdateDisplaySquares();
+            StateHasChanged();
+
+            // Refresh to ensure we have the latest state
+            await Task.Delay(100); // Small delay to let server process
+            await LoadPendingApprovals();
+            
+            // Refresh the squares list to reflect the new global state
+            await LoadGloballyCheckedSquares();
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error approving request: {ex.Message}");
+        }
+        finally
+        {
+            isProcessingApproval = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowDenyModal(PendingApproval approval)
+    {
+        currentApprovalForDenial = approval;
+        denyReason = "";
+        showDenyModalDialog = true;
+        StateHasChanged();
+    }
+
+    private async Task DenyRequest()
+    {
+        if (hubConnection == null || currentApprovalForDenial == null || isProcessingApproval) return;
+
+        try
+        {
+            isProcessingApproval = true;
+            StateHasChanged();
+
+            var reason = string.IsNullOrWhiteSpace(denyReason) ? null : denyReason;
+            await hubConnection.SendAsync("DenySquareRequest", currentApprovalForDenial.Id, reason);
+            AddToLog($"Denied request: {currentApprovalForDenial.SquareLabel}");
+
+            // Immediately remove from local list for instant UI feedback
+            pendingApprovals.RemoveAll(a => a.Id == currentApprovalForDenial.Id);
+            UpdateDisplaySquares();
+            
+            // Close modal immediately
+            showDenyModalDialog = false;
+            var deniedApprovalId = currentApprovalForDenial.Id;
+            currentApprovalForDenial = null;
+            denyReason = "";
+            StateHasChanged();
+
+            // Refresh to ensure we have the latest state
+            await Task.Delay(100); // Small delay to let server process
+            await LoadPendingApprovals();
+            
+            // Refresh the squares list for consistency
+            await LoadGloballyCheckedSquares();
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error denying request: {ex.Message}");
+        }
+        finally
+        {
+            isProcessingApproval = false;
+            showDenyModalDialog = false;
+            currentApprovalForDenial = null;
+            denyReason = "";
+            StateHasChanged();
+        }
+    }
+
+    private void CancelDenyModal()
+    {
+        showDenyModalDialog = false;
+        currentApprovalForDenial = null;
+        denyReason = "";
+        StateHasChanged();
+    }
+
     private void ShowCheckedOnly()
     {
         showCheckedOnly = true;
@@ -355,6 +665,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        refreshTimer?.Dispose();
         if (hubConnection is not null)
         {
             await hubConnection.DisposeAsync();
@@ -386,11 +697,36 @@
         border-color: #28a745;
     }
 
+    .square-card.square-pending-approval {
+        background-color: #fff3cd;
+        border-color: #ffc107;
+        animation: pulse-warning 2s infinite;
+    }
+
+    @@keyframes pulse-warning {
+        0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    }
+
     .square-header {
         display: flex;
-        justify-content: between;
+        justify-content: space-between;
         align-items: center;
         margin-bottom: 8px;
+    }
+
+    .square-status {
+        display: flex;
+        align-items: center;
+    }
+
+    .pending-indicator {
+        margin-top: 8px;
+        padding: 4px 8px;
+        background-color: rgba(255, 193, 7, 0.2);
+        border-radius: 4px;
+        border-left: 3px solid #ffc107;
     }
 
     .square-type {
@@ -438,5 +774,51 @@
     .spinner-border {
         width: 3rem;
         height: 3rem;
+    }
+
+    /* Approval Request Styles */
+    .approval-request-card {
+        border: 2px solid #ffc107;
+        border-radius: 8px;
+        padding: 15px;
+        background-color: #fff3cd;
+        box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+        transition: all 0.3s ease;
+    }
+
+    .approval-request-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+    }
+
+    .approval-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .approval-content {
+        margin-bottom: 15px;
+    }
+
+    .approval-content h6 {
+        color: #856404;
+        font-weight: 600;
+    }
+
+    .approval-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .approval-actions .btn {
+        flex: 1;
+        font-size: 0.875rem;
+    }
+
+    /* Modal styles */
+    .modal.show {
+        display: block !important;
     }
 </style>

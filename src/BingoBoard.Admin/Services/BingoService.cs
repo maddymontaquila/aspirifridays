@@ -264,6 +264,216 @@ namespace BingoBoard.Admin.Services
             }
         }
 
+        public async Task<string> RequestSquareApprovalAsync(string clientId, string squareId, bool requestedState)
+        {
+            try
+            {
+                // Get the square details for the label
+                var square = _allSquares.FirstOrDefault(s => s.Id == squareId);
+                if (square == null)
+                {
+                    throw new ArgumentException($"Square with ID {squareId} not found");
+                }
+
+                var approval = new PendingApproval
+                {
+                    ClientId = clientId,
+                    SquareId = squareId,
+                    SquareLabel = square.Label,
+                    RequestedState = requestedState
+                };
+
+                // Store in Redis cache
+                var cacheKey = $"pending_approval_{approval.Id}";
+                var serializedApproval = JsonSerializer.Serialize(approval);
+                await _cache.SetStringAsync(cacheKey, serializedApproval, new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(2) // Expire after 2 hours
+                });
+
+                // Add to list of pending approvals
+                var pendingListKey = "pending_approvals_list";
+                var existingList = await _cache.GetStringAsync(pendingListKey);
+                var approvalIds = string.IsNullOrEmpty(existingList) 
+                    ? new List<string>() 
+                    : JsonSerializer.Deserialize<List<string>>(existingList) ?? new List<string>();
+                
+                approvalIds.Add(approval.Id);
+                await _cache.SetStringAsync(pendingListKey, JsonSerializer.Serialize(approvalIds));
+
+                _logger.LogInformation("Created approval request {ApprovalId} for client {ClientId}, square {SquareId}", 
+                    approval.Id, clientId, squareId);
+
+                return approval.Id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating approval request for client {ClientId}", clientId);
+                throw;
+            }
+        }
+
+        public async Task<List<PendingApproval>> GetPendingApprovalsAsync()
+        {
+            try
+            {
+                var pendingListKey = "pending_approvals_list";
+                var existingList = await _cache.GetStringAsync(pendingListKey);
+                
+                if (string.IsNullOrEmpty(existingList))
+                    return new List<PendingApproval>();
+
+                var approvalIds = JsonSerializer.Deserialize<List<string>>(existingList) ?? new List<string>();
+                var approvals = new List<PendingApproval>();
+
+                foreach (var approvalId in approvalIds)
+                {
+                    var approval = await GetPendingApprovalAsync(approvalId);
+                    if (approval != null && approval.Status == ApprovalStatus.Pending)
+                    {
+                        approvals.Add(approval);
+                    }
+                }
+
+                return approvals.OrderBy(a => a.RequestedAt).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving pending approvals");
+                return new List<PendingApproval>();
+            }
+        }
+
+        public async Task<bool> ApproveSquareRequestAsync(string approvalId, string adminId)
+        {
+            try
+            {
+                var approval = await GetPendingApprovalAsync(approvalId);
+                if (approval == null || approval.Status != ApprovalStatus.Pending)
+                {
+                    return false;
+                }
+
+                // Update the approval status
+                approval.Status = ApprovalStatus.Approved;
+                approval.ProcessedByAdmin = adminId;
+                approval.ProcessedAt = DateTime.UtcNow;
+
+                // Save updated approval
+                var cacheKey = $"pending_approval_{approvalId}";
+                var serializedApproval = JsonSerializer.Serialize(approval);
+                await _cache.SetStringAsync(cacheKey, serializedApproval);
+
+                // Apply the change globally to all clients
+                await UpdateSquareGloballyAsync(approval.SquareId, approval.RequestedState);
+
+                _logger.LogInformation("Approved square request {ApprovalId} by admin {AdminId}", approvalId, adminId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving square request {ApprovalId}", approvalId);
+                return false;
+            }
+        }
+
+        public async Task<bool> DenySquareRequestAsync(string approvalId, string adminId, string? reason = null)
+        {
+            try
+            {
+                var approval = await GetPendingApprovalAsync(approvalId);
+                if (approval == null || approval.Status != ApprovalStatus.Pending)
+                {
+                    return false;
+                }
+
+                // Update the approval status
+                approval.Status = ApprovalStatus.Denied;
+                approval.ProcessedByAdmin = adminId;
+                approval.ProcessedAt = DateTime.UtcNow;
+                approval.DenialReason = reason;
+
+                // Save updated approval
+                var cacheKey = $"pending_approval_{approvalId}";
+                var serializedApproval = JsonSerializer.Serialize(approval);
+                await _cache.SetStringAsync(cacheKey, serializedApproval);
+
+                _logger.LogInformation("Denied square request {ApprovalId} by admin {AdminId}", approvalId, adminId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error denying square request {ApprovalId}", approvalId);
+                return false;
+            }
+        }
+
+        public async Task<PendingApproval?> GetPendingApprovalAsync(string approvalId)
+        {
+            try
+            {
+                var cacheKey = $"pending_approval_{approvalId}";
+                var serializedApproval = await _cache.GetStringAsync(cacheKey);
+                
+                if (string.IsNullOrEmpty(serializedApproval))
+                    return null;
+
+                return JsonSerializer.Deserialize<PendingApproval>(serializedApproval);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving pending approval {ApprovalId}", approvalId);
+                return null;
+            }
+        }
+
+        public async Task CleanupExpiredApprovalsAsync()
+        {
+            try
+            {
+                var pendingListKey = "pending_approvals_list";
+                var existingList = await _cache.GetStringAsync(pendingListKey);
+                
+                if (string.IsNullOrEmpty(existingList))
+                    return;
+
+                var approvalIds = JsonSerializer.Deserialize<List<string>>(existingList) ?? new List<string>();
+                var validApprovalIds = new List<string>();
+
+                foreach (var approvalId in approvalIds)
+                {
+                    var approval = await GetPendingApprovalAsync(approvalId);
+                    if (approval != null)
+                    {
+                        // Mark as expired if older than 2 hours and still pending
+                        if (approval.Status == ApprovalStatus.Pending && 
+                            approval.RequestedAt.AddHours(2) < DateTime.UtcNow)
+                        {
+                            approval.Status = ApprovalStatus.Expired;
+                            var cacheKey = $"pending_approval_{approvalId}";
+                            var serializedApproval = JsonSerializer.Serialize(approval);
+                            await _cache.SetStringAsync(cacheKey, serializedApproval);
+                        }
+
+                        // Keep in list if not too old (for tracking purposes)
+                        if (approval.RequestedAt.AddDays(1) > DateTime.UtcNow)
+                        {
+                            validApprovalIds.Add(approvalId);
+                        }
+                    }
+                }
+
+                // Update the list
+                await _cache.SetStringAsync(pendingListKey, JsonSerializer.Serialize(validApprovalIds));
+
+                _logger.LogInformation("Cleaned up expired approvals, {ValidCount} remain", validApprovalIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cleaning up expired approvals");
+            }
+        }
+
         /// <summary>
         /// Generate the complete list of available bingo squares
         /// </summary>

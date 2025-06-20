@@ -64,6 +64,9 @@ builder.AddRedisDistributedCache(connectionName: "cache");
 builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
 
+// Register background services
+builder.Services.AddHostedService<ApprovalCleanupService>();
+
 // Add logging
 builder.Services.AddLogging();
 

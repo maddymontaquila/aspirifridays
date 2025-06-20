@@ -41,6 +41,7 @@
           :index="index"
           :is-focused="focusedIndex === index && gridHasFocus"
           :is-bingo-line="isPartOfBingo(index)"
+          :is-pending="pendingSquares.has(square.id)"
           :disabled="!isConnected || isLoading"
           @toggle="toggleSquare" />
       </div>
@@ -93,7 +94,8 @@ export default {
       connectionState: { connected: false, reconnecting: false },
       currentBingoSet: null,
       isLoading: false,
-      error: null
+      error: null,
+      pendingSquares: new Set() // Track squares that are pending approval
     }
   },
   computed: {
@@ -124,6 +126,11 @@ export default {
         signalRService.addEventListener('bingoAchieved', this.onBingoAchieved)
         signalRService.addEventListener('globalSquareUpdate', this.onGlobalSquareUpdate)
         signalRService.addEventListener('error', this.onSignalRError)
+        
+        // Approval workflow event listeners
+        signalRService.addEventListener('approvalRequestSubmitted', this.onApprovalRequestSubmitted)
+        signalRService.addEventListener('approvalRequestApproved', this.onApprovalRequestApproved)
+        signalRService.addEventListener('approvalRequestDenied', this.onApprovalRequestDenied)
 
         // Connect to SignalR hub
         await signalRService.connect()
@@ -170,7 +177,7 @@ export default {
     },
 
     /**
-     * Toggle a square and notify the server
+     * Toggle a square and request approval from admin
      */
     async toggleSquare(index) {
       const square = this.currentBoard[index]
@@ -178,22 +185,28 @@ export default {
         return // Free squares can't be toggled
       }
 
+      // Don't allow toggling if already pending
+      if (this.pendingSquares.has(square.id)) {
+        console.log('Square is already pending approval:', square.id)
+        return
+      }
+
       try {
-        // Optimistically update the UI
         const newMarkedState = !square.marked
-        this.currentBoard[index].marked = newMarkedState
         
-        // Notify the server
-        await signalRService.updateSquare(square.id, newMarkedState)
+        // Add to pending squares immediately for UI feedback
+        this.pendingSquares.add(square.id)
         
-        // Check for bingo locally for immediate feedback
-        this.checkForBingo()
-        this.saveState()
+        // Request approval from admin instead of direct update
+        await signalRService.requestSquareApproval(square.id, newMarkedState)
+        
+        console.log(`Requested approval for square ${square.id}: ${newMarkedState ? 'check' : 'uncheck'}`)
+        
       } catch (error) {
-        console.error('Failed to update square:', error)
-        // Revert the optimistic update
-        this.currentBoard[index].marked = !this.currentBoard[index].marked
-        this.error = `Failed to update square: ${error.message}`
+        console.error('Failed to request square approval:', error)
+        // Remove from pending if request failed
+        this.pendingSquares.delete(square.id)
+        this.error = `Failed to request approval: ${error.message}`
       }
     },
     
@@ -389,6 +402,46 @@ export default {
     onSignalRError(error) {
       console.error('SignalR error:', error)
       this.error = `Server error: ${error}`
+    },
+
+    // Approval workflow event handlers
+    onApprovalRequestSubmitted(response) {
+      console.log('Approval request submitted:', response)
+      // Square is now pending - UI should show pending state
+      // The pending state is already handled by adding to pendingSquares in toggleSquare
+    },
+
+    onApprovalRequestApproved(response) {
+      console.log('Approval request approved:', response)
+      
+      // Remove from pending squares
+      this.pendingSquares.delete(response.squareId)
+      
+      // Update the square's marked state
+      const squareIndex = this.currentBoard.findIndex(square => square.id === response.squareId)
+      if (squareIndex !== -1) {
+        this.currentBoard[squareIndex].marked = response.newState
+        this.checkForBingo()
+        this.saveState()
+        console.log(`Square ${response.squareId} approved and marked as ${response.newState}`)
+      }
+      
+      // Show success notification
+      this.showGlobalUpdateNotification(`Your request to ${response.newState ? 'check' : 'uncheck'} "${response.squareLabel}" was approved!`)
+    },
+
+    onApprovalRequestDenied(response) {
+      console.log('Approval request denied:', response)
+      
+      // Remove from pending squares
+      this.pendingSquares.delete(response.squareId)
+      
+      // Show denial notification with reason if provided
+      let message = `Your request to ${response.requestedState ? 'check' : 'uncheck'} "${response.squareLabel}" was denied.`
+      if (response.reason) {
+        message += ` Reason: ${response.reason}`
+      }
+      this.showGlobalUpdateNotification(message)
     }
   },
   
@@ -405,6 +458,11 @@ export default {
     signalRService.removeEventListener('bingoAchieved', this.onBingoAchieved)
     signalRService.removeEventListener('globalSquareUpdate', this.onGlobalSquareUpdate)
     signalRService.removeEventListener('error', this.onSignalRError)
+    
+    // Clean up approval workflow event listeners
+    signalRService.removeEventListener('approvalRequestSubmitted', this.onApprovalRequestSubmitted)
+    signalRService.removeEventListener('approvalRequestApproved', this.onApprovalRequestApproved)
+    signalRService.removeEventListener('approvalRequestDenied', this.onApprovalRequestDenied)
     
     // Don't disconnect SignalR as other components might be using it
   }

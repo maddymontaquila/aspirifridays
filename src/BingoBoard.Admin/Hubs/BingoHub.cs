@@ -116,60 +116,54 @@ namespace BingoBoard.Admin.Hubs
         }
 
         /// <summary>
-        /// Client updates their own square status
+        /// Client requests approval to mark a square
         /// </summary>
-        public async Task UpdateSquare(string squareId, bool isChecked)
+        public async Task RequestSquareApproval(string squareId, bool requestedState)
         {
             try
             {
                 var connectionId = Context.ConnectionId;
-                _logger.LogInformation("Client {ConnectionId} updating square {SquareId} to {Status}", 
-                    connectionId, squareId, isChecked);
+                _logger.LogInformation("Client {ConnectionId} requesting approval for square {SquareId} to {Status}", 
+                    connectionId, squareId, requestedState);
 
-                var success = await _bingoService.UpdateSquareStatusAsync(connectionId, squareId, isChecked);
+                var approvalId = await _bingoService.RequestSquareApprovalAsync(connectionId, squareId, requestedState);
                 
-                if (success)
-                {
-                    // Update client activity
-                    await _clientService.UpdateClientActivityAsync(connectionId);
+                // Update client activity
+                await _clientService.UpdateClientActivityAsync(connectionId);
 
-                    // Check for win condition
-                    var hasWin = await _bingoService.CheckForWinAsync(connectionId);
+                // Get the square details for notification
+                var allSquares = await _bingoService.GetAllSquaresAsync();
+                var square = allSquares.FirstOrDefault(s => s.Id == squareId);
+                var squareLabel = square?.Label ?? squareId;
 
-                    // Confirm update to the client
-                    await Clients.Caller.SendAsync("SquareUpdateConfirmed", new 
-                    { 
-                        SquareId = squareId, 
-                        IsChecked = isChecked,
-                        HasWin = hasWin,
-                        Timestamp = DateTime.UtcNow
-                    });
+                // Confirm request submission to the client
+                await Clients.Caller.SendAsync("ApprovalRequestSubmitted", new 
+                { 
+                    ApprovalId = approvalId,
+                    SquareId = squareId,
+                    RequestedState = requestedState,
+                    Message = $"Request to {(requestedState ? "check" : "uncheck")} '{squareLabel}' has been submitted for admin approval",
+                    Timestamp = DateTime.UtcNow
+                });
 
-                    // Notify admin clients about the client's update
-                    await Clients.Others.SendAsync("ClientSquareUpdate", new 
-                    { 
-                        ClientId = connectionId,
-                        SquareId = squareId, 
-                        IsChecked = isChecked,
-                        HasWin = hasWin,
-                        Timestamp = DateTime.UtcNow
-                    });
+                // Notify admin clients about the new approval request
+                await Clients.Others.SendAsync("NewApprovalRequest", new 
+                { 
+                    ApprovalId = approvalId,
+                    ClientId = connectionId,
+                    SquareId = squareId,
+                    SquareLabel = squareLabel,
+                    RequestedState = requestedState,
+                    Timestamp = DateTime.UtcNow
+                });
 
-                    if (hasWin)
-                    {
-                        _logger.LogInformation("Client {ConnectionId} achieved bingo!", connectionId);
-                        await Clients.All.SendAsync("BingoAchieved", new { ClientId = connectionId });
-                    }
-                }
-                else
-                {
-                    await Clients.Caller.SendAsync("Error", "Failed to update square");
-                }
+                _logger.LogInformation("Created approval request {ApprovalId} for client {ConnectionId}", 
+                    approvalId, connectionId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating square for client {ConnectionId}", Context.ConnectionId);
-                await Clients.Caller.SendAsync("Error", "Failed to update square");
+                _logger.LogError(ex, "Error creating approval request for client {ConnectionId}", Context.ConnectionId);
+                await Clients.Caller.SendAsync("Error", "Failed to submit approval request");
             }
         }
 
@@ -362,5 +356,163 @@ namespace BingoBoard.Admin.Hubs
         }
 
         #endregion
+
+        /// <summary>
+        /// Admin approves a square marking request
+        /// </summary>
+        public async Task ApproveSquareRequest(string approvalId)
+        {
+            try
+            {
+                var adminId = Context.ConnectionId; // In a real app, you'd get this from authentication
+                _logger.LogInformation("Admin {AdminId} approving request {ApprovalId}", adminId, approvalId);
+
+                // Get the approval details before processing
+                var approval = await _bingoService.GetPendingApprovalAsync(approvalId);
+                if (approval == null)
+                {
+                    await Clients.Caller.SendAsync("Error", "Approval request not found");
+                    return;
+                }
+
+                var success = await _bingoService.ApproveSquareRequestAsync(approvalId, adminId);
+                
+                if (success)
+                {
+                    // Get the square details for notification
+                    var allSquares = await _bingoService.GetAllSquaresAsync();
+                    var square = allSquares.FirstOrDefault(s => s.Id == approval.SquareId);
+                    var squareLabel = square?.Label ?? approval.SquareId;
+
+                    // Notify the requesting client that their request was approved
+                    await Clients.Client(approval.ClientId).SendAsync("ApprovalRequestApproved", new 
+                    { 
+                        ApprovalId = approvalId,
+                        SquareId = approval.SquareId,
+                        RequestedState = approval.RequestedState,
+                        Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' has been approved!",
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    // Notify all admin clients about the approval
+                    await Clients.Others.SendAsync("ApprovalRequestProcessed", new 
+                    { 
+                        ApprovalId = approvalId,
+                        Status = "Approved",
+                        ProcessedBy = adminId,
+                        SquareId = approval.SquareId,
+                        SquareLabel = squareLabel,
+                        RequestedState = approval.RequestedState,
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    // Send global square update to all clients (including the one who requested it)
+                    await Clients.All.SendAsync("GlobalSquareUpdate", new 
+                    { 
+                        SquareId = approval.SquareId, 
+                        IsChecked = approval.RequestedState,
+                        Timestamp = DateTime.UtcNow,
+                        Message = $"'{squareLabel}' has been {(approval.RequestedState ? "checked" : "unchecked")} by admin approval"
+                    });
+
+                    _logger.LogInformation("Approved request {ApprovalId} and sent global update for {SquareId}", approvalId, approval.SquareId);
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("Error", "Failed to approve request");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving request {ApprovalId}", approvalId);
+                await Clients.Caller.SendAsync("Error", "Failed to approve request");
+            }
+        }
+
+        /// <summary>
+        /// Admin denies a square marking request
+        /// </summary>
+        public async Task DenySquareRequest(string approvalId, string? reason = null)
+        {
+            try
+            {
+                var adminId = Context.ConnectionId; // In a real app, you'd get this from authentication
+                _logger.LogInformation("Admin {AdminId} denying request {ApprovalId}", adminId, approvalId);
+
+                // Get the approval details before processing
+                var approval = await _bingoService.GetPendingApprovalAsync(approvalId);
+                if (approval == null)
+                {
+                    await Clients.Caller.SendAsync("Error", "Approval request not found");
+                    return;
+                }
+
+                var success = await _bingoService.DenySquareRequestAsync(approvalId, adminId, reason);
+                
+                if (success)
+                {
+                    // Get the square details for notification
+                    var allSquares = await _bingoService.GetAllSquaresAsync();
+                    var square = allSquares.FirstOrDefault(s => s.Id == approval.SquareId);
+                    var squareLabel = square?.Label ?? approval.SquareId;
+
+                    // Notify the requesting client that their request was denied
+                    await Clients.Client(approval.ClientId).SendAsync("ApprovalRequestDenied", new 
+                    { 
+                        ApprovalId = approvalId,
+                        SquareId = approval.SquareId,
+                        RequestedState = approval.RequestedState,
+                        Reason = reason,
+                        Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' was denied" + 
+                                  (string.IsNullOrEmpty(reason) ? "" : $": {reason}"),
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    // Notify all admin clients about the denial
+                    await Clients.Others.SendAsync("ApprovalRequestProcessed", new 
+                    { 
+                        ApprovalId = approvalId,
+                        Status = "Denied",
+                        ProcessedBy = adminId,
+                        SquareId = approval.SquareId,
+                        SquareLabel = squareLabel,
+                        RequestedState = approval.RequestedState,
+                        Reason = reason,
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Denied request {ApprovalId} by admin {AdminId}", approvalId, adminId);
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("Error", "Failed to deny request");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error denying request {ApprovalId}", approvalId);
+                await Clients.Caller.SendAsync("Error", "Failed to deny request");
+            }
+        }
+
+        /// <summary>
+        /// Admin requests list of pending approval requests
+        /// </summary>
+        public async Task GetPendingApprovals()
+        {
+            try
+            {
+                // Clean up expired approvals first
+                await _bingoService.CleanupExpiredApprovalsAsync();
+
+                var pendingApprovals = await _bingoService.GetPendingApprovalsAsync();
+                await Clients.Caller.SendAsync("PendingApprovalsList", pendingApprovals);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving pending approvals");
+                await Clients.Caller.SendAsync("Error", "Failed to retrieve pending approvals");
+            }
+        }
     }
 }

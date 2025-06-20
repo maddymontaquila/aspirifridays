@@ -77,6 +77,37 @@ export class SignalRService {
         this.notifyListeners('squareUpdateConfirmed', confirmation)
       })
 
+      // New approval workflow events
+      this.connection.on('ApprovalRequestSubmitted', (response) => {
+        console.log('Approval request submitted:', response)
+        this.notifyListeners('approvalRequestSubmitted', response)
+      })
+
+      this.connection.on('ApprovalRequestApproved', (response) => {
+        console.log('Approval request approved:', response)
+        this.notifyListeners('approvalRequestApproved', response)
+      })
+
+      this.connection.on('ApprovalRequestDenied', (response) => {
+        console.log('Approval request denied:', response)
+        this.notifyListeners('approvalRequestDenied', response)
+      })
+
+      this.connection.on('NewApprovalRequest', (request) => {
+        console.log('New approval request (for admins):', request)
+        this.notifyListeners('newApprovalRequest', request)
+      })
+
+      this.connection.on('ApprovalRequestProcessed', (response) => {
+        console.log('Approval request processed (for admins):', response)
+        this.notifyListeners('approvalRequestProcessed', response)
+      })
+
+      this.connection.on('PendingApprovalsList', (approvals) => {
+        console.log('Pending approvals list:', approvals)
+        this.notifyListeners('pendingApprovalsList', approvals)
+      })
+
       this.connection.on('BingoAchieved', (data) => {
         console.log('Bingo achieved:', data)
         this.notifyListeners('bingoAchieved', data)
@@ -134,19 +165,76 @@ export class SignalRService {
   }
 
   /**
-   * Update a square's status
+   * Request approval to mark a square (replaces direct square updates)
    */
-  async updateSquare(squareId, isChecked) {
+  async requestSquareApproval(squareId, requestedState) {
     if (!this.isConnected || !this.connection) {
       throw new Error('Not connected to SignalR hub')
     }
     
     try {
-      await this.connection.invoke('UpdateSquare', squareId, isChecked)
+      await this.connection.invoke('RequestSquareApproval', squareId, requestedState)
     } catch (error) {
-      console.error('Failed to update square:', error)
+      console.error('Failed to request square approval:', error)
       throw error
     }
+  }
+
+  /**
+   * Admin: Approve a square marking request
+   */
+  async approveSquareRequest(approvalId) {
+    if (!this.isConnected || !this.connection) {
+      throw new Error('Not connected to SignalR hub')
+    }
+    
+    try {
+      await this.connection.invoke('ApproveSquareRequest', approvalId)
+    } catch (error) {
+      console.error('Failed to approve square request:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Admin: Deny a square marking request
+   */
+  async denySquareRequest(approvalId, reason = null) {
+    if (!this.isConnected || !this.connection) {
+      throw new Error('Not connected to SignalR hub')
+    }
+    
+    try {
+      await this.connection.invoke('DenySquareRequest', approvalId, reason)
+    } catch (error) {
+      console.error('Failed to deny square request:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Admin: Get pending approval requests
+   */
+  async getPendingApprovals() {
+    if (!this.isConnected || !this.connection) {
+      throw new Error('Not connected to SignalR hub')
+    }
+    
+    try {
+      await this.connection.invoke('GetPendingApprovals')
+    } catch (error) {
+      console.error('Failed to get pending approvals:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Update a square's status (deprecated - kept for backwards compatibility)
+   * @deprecated Use requestSquareApproval instead
+   */
+  async updateSquare(squareId, isChecked) {
+    console.warn('updateSquare is deprecated. Use requestSquareApproval instead.')
+    return this.requestSquareApproval(squareId, isChecked)
   }
 
   /**

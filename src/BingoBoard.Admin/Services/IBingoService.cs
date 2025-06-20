@@ -46,5 +46,35 @@ namespace BingoBoard.Admin.Services
         /// Get globally checked squares
         /// </summary>
         Task<List<string>> GetGloballyCheckedSquaresAsync();
+
+        /// <summary>
+        /// Client requests approval to mark a square
+        /// </summary>
+        Task<string> RequestSquareApprovalAsync(string clientId, string squareId, bool requestedState);
+
+        /// <summary>
+        /// Get all pending approval requests
+        /// </summary>
+        Task<List<PendingApproval>> GetPendingApprovalsAsync();
+
+        /// <summary>
+        /// Admin approves a square marking request
+        /// </summary>
+        Task<bool> ApproveSquareRequestAsync(string approvalId, string adminId);
+
+        /// <summary>
+        /// Admin denies a square marking request
+        /// </summary>
+        Task<bool> DenySquareRequestAsync(string approvalId, string adminId, string? reason = null);
+
+        /// <summary>
+        /// Get a specific pending approval by ID
+        /// </summary>
+        Task<PendingApproval?> GetPendingApprovalAsync(string approvalId);
+
+        /// <summary>
+        /// Clean up expired approval requests
+        /// </summary>
+        Task CleanupExpiredApprovalsAsync();
     }
 }

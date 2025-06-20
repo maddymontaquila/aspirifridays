@@ -5,7 +5,8 @@
       'free-space': square.type === 'free',
       'bingo-line': isBingoLine,
       'focused': isFocused,
-      'disabled': disabled
+      'disabled': disabled,
+      'pending': isPending
     }]"
     :role="square.type === 'free' ? 'gridcell' : 'button'"
     :aria-pressed="square.type !== 'free' ? square.marked : undefined"
@@ -50,6 +51,10 @@ export default {
       type: Boolean,
       default: false
     },
+    isPending: {
+      type: Boolean,
+      default: false
+    },
     disabled: {
       type: Boolean,
       default: false
@@ -63,7 +68,7 @@ export default {
   },
   methods: {
     handleClick() {
-      if (!this.disabled) {
+      if (!this.disabled && !this.isPending) {
         this.$emit('toggle', this.index)
       }
     }
