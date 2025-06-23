@@ -7,7 +7,7 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WaitFor(cache);
 
 var bingo = builder.AddViteApp("bingoboard", "../bingo-board", "dev")
-    .WithEnvironment("PORT", "5173")
+    .WithNpmPackageInstallation()
     .WithReference(admin)
     .WaitFor(admin);
 
