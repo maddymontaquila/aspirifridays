@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.4.0-preview.1.25351.4" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>37a7eb6b-fd6f-418a-bb96-60d045507d20</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.0-preview.1.25351.4" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.NodeJS.Extensions" Version="9.5.1-beta.317" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BingoBoard.Squares\BingoBoard.Squares.csproj" />
+  </ItemGroup>
+
+</Project>

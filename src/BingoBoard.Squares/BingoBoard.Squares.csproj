@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-preview.5.25277.114" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BingoBoard.ServiceDefaults\BingoBoard.ServiceDefaults.csproj" />
+  </ItemGroup>
+
 </Project>

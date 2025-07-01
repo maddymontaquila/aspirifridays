@@ -1,14 +1,14 @@
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.AddServiceDefaults();
 // Add services to the container.
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVueFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000", "https://localhost:5173")
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -78,6 +78,8 @@ app.MapGet("/api/squares/type/{type}", (string type) =>
 })
 .WithName("GetSquaresByType")
 .WithOpenApi();
+
+app.MapDefaultEndpoints();
 
 app.Run();
 
