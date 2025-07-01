@@ -16,7 +16,7 @@
   >
     <div class="square-content">
       <img v-if="square.type === 'free'" 
-           src="/assets/aspire-logo-256.png" 
+           src="/aspire-logo-256.png" 
            alt=".NET Aspire Logo" 
            class="aspire-logo">
       <span v-else class="square-text">

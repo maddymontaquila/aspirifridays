@@ -1,0 +1,25 @@
+@BingoBoard.Squares_HostAddress = http://localhost:5170
+
+# Get all bingo squares
+GET {{BingoBoard.Squares_HostAddress}}/api/squares
+Accept: application/json
+
+###
+
+# Get random subset of squares (default 25)
+GET {{BingoBoard.Squares_HostAddress}}/api/squares/random
+Accept: application/json
+
+###
+
+# Get random subset with custom count
+GET {{BingoBoard.Squares_HostAddress}}/api/squares/random?count=10
+Accept: application/json
+
+###
+
+# Get squares by type
+GET {{BingoBoard.Squares_HostAddress}}/api/squares/type/quote
+Accept: application/json
+
+###

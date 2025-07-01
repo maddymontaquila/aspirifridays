@@ -28,12 +28,14 @@
         
         <div class="controls">
           <button @click="resetBoard" 
+                  :disabled="isLoading"
                   class="btn btn--primary"
                   aria-label="Reset and shuffle bingo board with new random squares">
-            <i class="bi bi-arrow-clockwise"></i>
-            <span>New Board</span>
+            <i class="bi bi-arrow-clockwise" :class="{ 'spinning': isLoading }"></i>
+            <span>{{ isLoading ? 'Loading...' : 'New Board' }}</span>
           </button>
           <button @click="downloadImage" 
+                  :disabled="isLoading || currentBoard.length === 0"
                   class="btn btn--accent"
                   aria-label="Download an image of the current bingo board for sharing">
             <i class="bi bi-download"></i>
@@ -48,7 +50,6 @@
 </template>
 
 <script>
-import bingoData from '../data/bingoSquares.json'
 import { BingoGameLogic, KeyboardNavigation } from '../utils/bingoLogic.js'
 import { BingoImageGenerator } from '../utils/imageGenerator.js'
 
@@ -57,6 +58,41 @@ import BingoSquare from './BingoSquare.vue'
 import BingoCelebrationOverlay from './BingoCelebrationOverlay.vue'
 import BingoCelebrationArea from './BingoCelebrationArea.vue'
 import AspireCallout from './AspireCallout.vue'
+
+// API service
+const API_BASE_URL = 'http://localhost:5170/api'
+
+const apiService = {
+  async getRandomSquares(count = 25) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/squares/random?count=${count}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to fetch random squares:', error)
+      // Fallback to a basic set if API fails
+      return [
+        { id: "free", label: "Free Space", type: "free" },
+        { id: "error-fallback", label: "API Connection Error", type: "oops" }
+      ]
+    }
+  },
+
+  async getAllSquares() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/squares`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to fetch all squares:', error)
+      return []
+    }
+  }
+}
 
 export default {
   name: 'BingoBoard',
@@ -68,12 +104,13 @@ export default {
   },
   data() {
     return {
-      allSquares: bingoData,
+      allSquares: [],
       currentBoard: [],
       bingoLines: [],
       focusedIndex: 0,
       gridHasFocus: false,
-      showInitialCelebration: true
+      showInitialCelebration: true,
+      isLoading: false
     }
   },
   computed: {
@@ -82,8 +119,10 @@ export default {
     }
   },
   methods: {
-    generateBoard() {
-      return BingoGameLogic.generateBoard(this.allSquares)
+    async generateBoard() {
+      // Get fresh random squares from API
+      const squares = await apiService.getRandomSquares(25)
+      return BingoGameLogic.generateBoard(squares)
     },
     
     toggleSquare(index) {
@@ -111,13 +150,21 @@ export default {
       return BingoGameLogic.isPartOfBingo(index, this.bingoLines)
     },
     
-    resetBoard() {
-      // Generate a fresh randomized board
-      this.currentBoard = this.generateBoard()
-      this.bingoLines = []
-      this.showInitialCelebration = true
-      this.saveState()
-      console.log('Generated new randomized bingo board')
+    async resetBoard() {
+      this.isLoading = true
+      try {
+        // Generate a fresh randomized board from API
+        this.currentBoard = await this.generateBoard()
+        this.bingoLines = []
+        this.showInitialCelebration = true
+        this.saveState()
+        console.log('Generated new randomized bingo board from API')
+      } catch (error) {
+        console.error('Error generating new board:', error)
+        alert('There was an error generating a new board. Please try again.')
+      } finally {
+        this.isLoading = false
+      }
     },
     
     saveState() {
@@ -128,7 +175,7 @@ export default {
       }))
     },
     
-    loadState() {
+    async loadState() {
       const saved = localStorage.getItem('aspirifridays-bingo')
       if (saved) {
         const state = JSON.parse(saved)
@@ -138,8 +185,8 @@ export default {
         this.showInitialCelebration = this.bingoLines.length === 0
         console.log('Loaded saved bingo board from localStorage')
       } else {
-        // First time visitor - generate a fresh randomized board
-        this.currentBoard = this.generateBoard()
+        // First time visitor - generate a fresh randomized board from API
+        this.currentBoard = await this.generateBoard()
         console.log('Generated new randomized bingo board for first-time visitor')
       }
     },
@@ -186,8 +233,22 @@ export default {
     }
   },
   
-  mounted() {
-    this.loadState()
+  async mounted() {
+    this.isLoading = true
+    try {
+      await this.loadState()
+    } catch (error) {
+      console.error('Error loading initial state:', error)
+      // Fallback: try to generate a board with error handling
+      try {
+        this.currentBoard = await this.generateBoard()
+      } catch (fallbackError) {
+        console.error('Critical error: Cannot load board', fallbackError)
+        alert('Unable to load bingo board. Please check your connection and refresh the page.')
+      }
+    } finally {
+      this.isLoading = false
+    }
   }
 }
 </script>
