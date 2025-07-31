@@ -30,7 +30,10 @@
   { "id": "bad-ai", "label": "Copilot hallucinates/gaslights", "type": "dev" },
   { "id": "live-share", "label": "Accidentally kills live share", "type": "oops" },
   { "id": "frustration", "label": "Visible frustration", "type": "dev" },
+<<<<<<< HEAD:src/bingo-board/data/bingoSquares.json
   { "id": "crashout", "label": "Fowler crashes out", "type": "dev" },
+=======
+>>>>>>> main:src/data/bingoSquares.json
   { "id": "monorepo", "label": "Fowler says \"Just use a monorepo\"", "type": "quote" },
   { "id": "private-key", "label": "Someone shares a private key", "type": "oops" },
   { "id": "maddy-and-damian", "label": "Maddy and Damian bicker", "type": "dev" },
@@ -38,4 +41,8 @@
   { "id": "one-line-fix", "label": "\"It's only one line, lets add it\"", "type": "quote" },
   { "id": "probably-works", "label": "\"This probably works\"", "type": "quote" },
   { "id": "impending-problem", "label": "\"That's gonna be a problem\"", "type": "quote" }
+<<<<<<< HEAD:src/bingo-board/data/bingoSquares.json
 ]
+=======
+]
+>>>>>>> main:src/data/bingoSquares.json
