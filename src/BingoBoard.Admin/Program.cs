@@ -11,31 +11,50 @@ var builder = WebApplication.CreateBuilder(args);
 // Add Aspire service defaults
 builder.AddServiceDefaults();
 
-// Add Microsoft Identity authentication
-builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(options =>
-    {
-        options.Instance = "https://login.microsoftonline.com/";
-        options.TenantId = builder.Configuration["Authentication:Microsoft:TenantId"];
-        options.ClientId = builder.Configuration["Authentication:Microsoft:ClientId"];
-        options.ClientSecret = builder.Configuration["Authentication:Microsoft:ClientSecret"];
-        options.CallbackPath = "/signin-oidc";
-        options.ResponseType = "code";
-        options.SaveTokens = true;
-    });
+// Check if authentication should be disabled for development
+var disableAuth = builder.Configuration.GetValue<bool>("Development:DisableAuthentication");
 
-// Add authorization
-builder.Services.AddAuthorization(options =>
+if (!disableAuth)
 {
-    // Default policy requires authentication for all pages except SignalR hub
-    options.DefaultPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
-    
-    // Policy for admin access - can be extended with specific claims/roles
-    options.AddPolicy("AdminOnly", policy =>
-        policy.RequireAuthenticatedUser());
-});
+    // Add Microsoft Identity authentication (only when not disabled)
+    builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+        .AddMicrosoftIdentityWebApp(options =>
+        {
+            options.Instance = "https://login.microsoftonline.com/";
+            options.TenantId = builder.Configuration["Authentication:Microsoft:TenantId"];
+            options.ClientId = builder.Configuration["Authentication:Microsoft:ClientId"];
+            options.ClientSecret = builder.Configuration["Authentication:Microsoft:ClientSecret"];
+            options.CallbackPath = "/signin-oidc";
+            options.ResponseType = "code";
+            options.SaveTokens = true;
+        });
+
+    // Add authorization
+    builder.Services.AddAuthorization(options =>
+    {
+        // Default policy requires authentication for all pages except SignalR hub
+        options.DefaultPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+        
+        // Policy for admin access - can be extended with specific claims/roles
+        options.AddPolicy("AdminOnly", policy =>
+            policy.RequireAuthenticatedUser());
+    });
+}
+else
+{
+    // Development mode: Add minimal authorization that allows anonymous access
+    builder.Services.AddAuthorization(options =>
+    {
+        options.DefaultPolicy = new AuthorizationPolicyBuilder()
+            .RequireAssertion(_ => true) // Always allow
+            .Build();
+        
+        options.AddPolicy("AdminOnly", policy =>
+            policy.RequireAssertion(_ => true)); // Always allow in development
+    });
+}
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -50,7 +69,7 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173", "http://localhost:5174", "https://localhost:5173", "https://localhost:5174")
+            .WithOrigins("http+https://bingoboard")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials(); // Required for SignalR
@@ -82,36 +101,54 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Use CORS
+app.UseStaticFiles();
+app.MapStaticAssets();
+
+// Use CORS  
 app.UseCors();
 
-// Add authentication and authorization middleware
-app.UseAuthentication();
-app.UseAuthorization();
+// Add authentication and authorization middleware (only if authentication is enabled)
+if (!disableAuth)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 
 app.UseAntiforgery();
 
-app.MapStaticAssets();
-
-// Map Razor components with authentication required
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .RequireAuthorization("AdminOnly");
+// Map Razor components with conditional authentication
+if (disableAuth)
+{
+    // Development mode: Allow anonymous access
+    app.MapRazorComponents<App>()
+        .AddInteractiveServerRenderMode()
+        .AllowAnonymous();
+}
+else
+{
+    // Production mode: Require authentication
+    app.MapRazorComponents<App>()
+        .AddInteractiveServerRenderMode()
+        .RequireAuthorization("AdminOnly");
+}
 
 // Map SignalR hub without authentication (anonymous access allowed)
 app.MapHub<BingoHub>("/bingohub").AllowAnonymous();
 
-// Add login and logout endpoints
-app.MapGet("/login", async (HttpContext context) =>
+// Add login and logout endpoints (only if authentication is enabled)
+if (!disableAuth)
 {
-    await context.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme);
-}).AllowAnonymous();
+    app.MapGet("/login", async (HttpContext context) =>
+    {
+        await context.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme);
+    }).AllowAnonymous();
 
-app.MapPost("/logout", async (HttpContext context) =>
-{
-    await context.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
-    await context.SignOutAsync("Cookies");
-    return Results.Redirect("/");
-}).RequireAuthorization();
+    app.MapPost("/logout", async (HttpContext context) =>
+    {
+        await context.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+        await context.SignOutAsync("Cookies");
+        return Results.Redirect("/");
+    }).RequireAuthorization();
+}
 
 app.Run();
