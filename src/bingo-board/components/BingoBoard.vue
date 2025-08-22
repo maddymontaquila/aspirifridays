@@ -50,20 +50,20 @@
         <BingoCelebrationArea :has-bingo="hasBingo && !showInitialCelebration" />
         
         <div class="controls">
+          <button @click="requestNewBoard" 
+                  :disabled="!isConnected || isLoading"
+                  class="btn btn--primary"
+                  aria-label="Get a completely new bingo board">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span>New Board</span>
+          </button>
+          
           <button @click="downloadImage" 
                   :disabled="!currentBoard.length"
                   class="btn btn--accent"
                   aria-label="Download an image of the current bingo board for sharing">
             <i class="bi bi-download"></i>
             <span>Download</span>
-          </button>
-          
-          <button @click="requestNewBoard" 
-                  :disabled="!isConnected || isLoading"
-                  class="btn btn--secondary"
-                  aria-label="Get a completely new bingo board">
-            <i class="bi bi-arrow-clockwise"></i>
-            <span>New Board</span>
           </button>
         </div>
         
