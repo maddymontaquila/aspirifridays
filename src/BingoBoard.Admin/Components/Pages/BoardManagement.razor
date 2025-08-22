@@ -405,17 +405,46 @@
                 {
                     // Handle both JsonElement and dynamic object cases
                     string squareLabel = "";
+                    string approvalId = "";
+                    string squareId = "";
+                    bool requestedState = false;
                     
                     // Check if data is JsonElement (common with SignalR)
                     if (data is System.Text.Json.JsonElement jsonElement)
                     {
                         if (jsonElement.TryGetProperty("squareLabel", out var squareLabelProp))
                             squareLabel = squareLabelProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("approvalId", out var approvalIdProp))
+                            approvalId = approvalIdProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("squareId", out var squareIdProp))
+                            squareId = squareIdProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("requestedState", out var requestedStateProp))
+                            requestedState = requestedStateProp.GetBoolean();
                     }
                     else
                     {
                         // Fallback to dynamic access
                         squareLabel = data.SquareLabel?.ToString() ?? "";
+                        approvalId = data.ApprovalId?.ToString() ?? "";
+                        squareId = data.SquareId?.ToString() ?? "";
+                        requestedState = data.RequestedState ?? false;
+                    }
+                    
+                    // Check if the square is already in the requested state
+                    var square = allSquares.FirstOrDefault(s => s.Id == squareId);
+                    if (square != null && square.IsChecked == requestedState)
+                    {
+                        // Square is already in the requested state, auto-approve without showing notification
+                        AddToLog($"Auto-approving request for '{squareLabel}' - already {(requestedState ? "checked" : "unchecked")}");
+                        
+                        // Send approval immediately
+                        if (hubConnection != null)
+                        {
+                            await hubConnection.SendAsync("ApproveSquareRequest", approvalId);
+                            AddToLog($"Auto-approved request: {approvalId}");
+                        }
+                        
+                        return; // Don't process as a normal approval request
                     }
                     
                     AddToLog($"New approval request for square: {squareLabel}");
@@ -744,12 +773,12 @@
             UpdateDisplaySquares();
             StateHasChanged();
 
-            // Refresh to ensure we have the latest state
+            // Refresh to ensure we have the latest pending approvals state
             await Task.Delay(100); // Small delay to let server process
             await LoadPendingApprovals();
             
-            // Refresh the squares list to reflect the new global state
-            await LoadGloballyCheckedSquares();
+            // Note: Don't call LoadGloballyCheckedSquares() here as it will override 
+            // the state that was just updated by the GlobalSquareUpdate event
         }
         catch (Exception ex)
         {

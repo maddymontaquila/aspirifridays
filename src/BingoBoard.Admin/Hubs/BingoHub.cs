@@ -454,9 +454,8 @@ namespace BingoBoard.Admin.Hubs
                         Timestamp = DateTime.UtcNow
                     });
 
-                    // Send admin-only square update to show the square as checked in admin interface
-                    // This only goes to other admin clients, not to all clients
-                    var adminUpdateData = new 
+                    // Send global square update to notify all clients (including admins) about the approved change
+                    var globalUpdateData = new 
                     { 
                         SquareId = approval.SquareId, 
                         IsChecked = approval.RequestedState,
@@ -464,13 +463,10 @@ namespace BingoBoard.Admin.Hubs
                         Message = $"'{squareLabel}' has been {(approval.RequestedState ? "checked" : "unchecked")} by admin approval"
                     };
                     
-                    _logger.LogInformation("Sending AdminSquareUpdate: SquareId={SquareId}, IsChecked={IsChecked}, Message={Message}", 
-                        adminUpdateData.SquareId, adminUpdateData.IsChecked, adminUpdateData.Message);
+                    _logger.LogInformation("Sending GlobalSquareUpdate: SquareId={SquareId}, IsChecked={IsChecked}, Message={Message}", 
+                        globalUpdateData.SquareId, globalUpdateData.IsChecked, globalUpdateData.Message);
                     
-                    await Clients.Others.SendAsync("AdminSquareUpdate", adminUpdateData);
-
-                    // Also send to the caller (the admin who approved) so they see the update too
-                    await Clients.Caller.SendAsync("AdminSquareUpdate", adminUpdateData);
+                    await Clients.Caller.SendAsync("GlobalSquareUpdate", globalUpdateData);
 
                     _logger.LogInformation("Approved {Count} related requests for square {SquareId} and sent admin update", 
                         relatedApprovals.Count, approval.SquareId);
