@@ -1,9 +1,7 @@
 using BingoBoard.Admin.Components;
 using BingoBoard.Admin.Hubs;
 using BingoBoard.Admin.Services;
-using Microsoft.Identity.Web;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Authorization;
+using BingoBoard.Admin.Middleware;
 using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,50 +14,23 @@ var frontendURL = Environment.GetEnvironmentVariable("services__bingoboard__http
                   Environment.GetEnvironmentVariable("services__bingoboard__https__0") ?? 
                   "http+https://bingoboard"; // Fallback to hardcoded value if service discovery not available
 
-// Check if authentication should be disabled for development
-var disableAuth = builder.Configuration.GetValue<bool>("Development:DisableAuthentication");
-
-if (!disableAuth)
-{
-    // Add Microsoft Identity authentication (only when not disabled)
-    builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-        .AddMicrosoftIdentityWebApp(options =>
-        {
-            options.Instance = "https://login.microsoftonline.com/";
-            options.TenantId = builder.Configuration["Authentication:Microsoft:TenantId"];
-            options.ClientId = builder.Configuration["Authentication:Microsoft:ClientId"];
-            options.ClientSecret = builder.Configuration["Authentication:Microsoft:ClientSecret"];
-            options.CallbackPath = "/signin-oidc";
-            options.ResponseType = "code";
-            options.SaveTokens = true;
-        });
-
-    // Add authorization
-    builder.Services.AddAuthorization(options =>
+// Add authentication services (required even for custom auth)
+builder.Services.AddAuthentication("Cookies")
+    .AddCookie("Cookies", options =>
     {
-        // Default policy requires authentication for all pages except SignalR hub
-        options.DefaultPolicy = new AuthorizationPolicyBuilder()
-            .RequireAuthenticatedUser()
-            .Build();
-        
-        // Policy for admin access - can be extended with specific claims/roles
-        options.AddPolicy("AdminOnly", policy =>
-            policy.RequireAuthenticatedUser());
+        options.LoginPath = "/login";
+        options.LogoutPath = "/logout";
+        options.ExpireTimeSpan = TimeSpan.FromHours(24);
+        options.SlidingExpiration = true;
+        options.Cookie.Name = "BingoAdmin";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
     });
-}
-else
-{
-    // Development mode: Add minimal authorization that allows anonymous access
-    builder.Services.AddAuthorization(options =>
-    {
-        options.DefaultPolicy = new AuthorizationPolicyBuilder()
-            .RequireAssertion(_ => true) // Always allow
-            .Build();
-        
-        options.AddPolicy("AdminOnly", policy =>
-            policy.RequireAssertion(_ => true)); // Always allow in development
-    });
-}
+
+builder.Services.AddAuthorization();
+
+// Add controllers for testing
+builder.Services.AddControllers();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -87,6 +58,7 @@ builder.AddRedisDistributedCache(connectionName: "cache");
 // Register custom services
 builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
+builder.Services.AddScoped<IPasswordAuthService, PasswordAuthService>();
 
 // Register background services
 builder.Services.AddHostedService<ApprovalCleanupService>();
@@ -112,48 +84,54 @@ app.MapStaticAssets();
 // Use CORS  
 app.UseCors();
 
-// Add authentication and authorization middleware (only if authentication is enabled)
-if (!disableAuth)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
+// Add authentication and authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Add password authentication middleware (temporarily disabled for debugging)
+// app.UseMiddleware<PasswordAuthMiddleware>();
 
 app.UseAntiforgery();
 
-// Map Razor components with conditional authentication
-if (disableAuth)
-{
-    // Development mode: Allow anonymous access
-    app.MapRazorComponents<App>()
-        .AddInteractiveServerRenderMode()
-        .AllowAnonymous();
-}
-else
-{
-    // Production mode: Require authentication
-    app.MapRazorComponents<App>()
-        .AddInteractiveServerRenderMode()
-        .RequireAuthorization("AdminOnly");
-}
+// Map controllers for testing
+app.MapControllers();
+
+// Map Razor components
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 // Map SignalR hub without authentication (anonymous access allowed)
-app.MapHub<BingoHub>("/bingohub").AllowAnonymous();
+app.MapHub<BingoHub>("/bingohub");
 
-// Add login and logout endpoints (only if authentication is enabled)
-if (!disableAuth)
+// Add login and logout endpoints
+app.MapPost("/auth/login", async (HttpContext context, IPasswordAuthService authService, ILogger<Program> logger) =>
 {
-    app.MapGet("/login", async (HttpContext context) =>
+    // Read password from form data instead of query parameter
+    var form = await context.Request.ReadFormAsync();
+    var password = form["password"].ToString();
+    
+    logger.LogInformation("Login attempt with password: {Password}", password);
+    
+    if (authService.ValidatePassword(password))
     {
-        await context.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme);
-    }).AllowAnonymous();
+        logger.LogInformation("Password valid, signing in user");
+        await authService.SignInAsync(context);
+        
+        // Check if user was actually signed in
+        var authResult = await context.AuthenticateAsync("Cookies");
+        logger.LogInformation("After sign in - Authentication succeeded: {Success}", authResult.Succeeded);
+        
+        return Results.Redirect("/"); // Redirect to simple test endpoint
+    }
+    
+    logger.LogInformation("Password invalid, redirecting to login with error");
+    return Results.Redirect("/login?error=invalid");
+});
 
-    app.MapPost("/logout", async (HttpContext context) =>
-    {
-        await context.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
-        await context.SignOutAsync("Cookies");
-        return Results.Redirect("/");
-    }).RequireAuthorization();
-}
+app.MapPost("/auth/logout", async (HttpContext context, IPasswordAuthService authService) =>
+{
+    await authService.SignOutAsync(context);
+    return Results.Redirect("/login");
+});
 
 app.Run();

@@ -1,7 +1,6 @@
 @page "/login"
-@attribute [AllowAnonymous]
-@using Microsoft.AspNetCore.Authentication
-@using Microsoft.AspNetCore.Authentication.OpenIdConnect
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
@@ -12,31 +11,60 @@
         <div class="logo-section">
             <img src="/favicon.png" alt="Bingo Admin" class="logo" />
             <h1>Bingo Admin Portal</h1>
-            <p class="subtitle">Sign in with your Microsoft account to access the admin panel</p>
+            <p class="subtitle">Enter the admin password to access the admin panel</p>
         </div>
         
         <div class="login-section">
-            <a href="/login" class="btn btn-primary btn-large">
-                <svg class="microsoft-logo" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M0 0h11v11H0V0z" fill="#f25022"/>
-                    <path d="M12 0h11v11H12V0z" fill="#00a4ef"/>
-                    <path d="M0 12h11v11H0V12z" fill="#00a4ef"/>
-                    <path d="M12 12h11v11H12V12z" fill="#ffb900"/>
-                </svg>
-                Sign in with Microsoft
-            </a>
+            <form method="post" action="/auth/login">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-circle"></i> @errorMessage
+                    </div>
+                }
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">
+                        <i class="fas fa-lock"></i> Password
+                    </label>
+                    <input id="password" name="password" type="password"
+                           class="form-control form-control-lg" 
+                           placeholder="Enter admin password" 
+                           required
+                           autofocus />
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-large">
+                    <i class="fas fa-sign-in-alt me-2"></i>
+                    <span>Sign In</span>
+                </button>
+            </form>
         </div>
         
         <div class="info-section">
             <p class="info-text">
                 <strong>Access Requirements:</strong><br/>
-                • Valid Microsoft account<br/>
-                • Access to tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47<br/>
-                • Admin permissions
+                • Valid admin password<br/>
+                • Session expires after 24 hours
             </p>
         </div>
     </div>
 </div>
+
+@code {
+    private string errorMessage = string.Empty;
+    
+    [SupplyParameterFromQuery]
+    public string? Error { get; set; }
+    
+    protected override void OnInitialized()
+    {
+        if (Error == "invalid")
+        {
+            errorMessage = "Invalid password. Please try again.";
+        }
+    }
+}
 
 <style>
     .login-container {
@@ -68,73 +96,110 @@
         margin-bottom: 1rem;
     }
 
-    .login-card h1 {
+    .logo-section h1 {
         color: #333;
-        margin-bottom: 0.5rem;
-        font-size: 1.75rem;
+        font-size: 1.8rem;
         font-weight: 600;
+        margin-bottom: 0.5rem;
     }
 
     .subtitle {
         color: #666;
+        font-size: 1rem;
         margin-bottom: 0;
-        font-size: 0.95rem;
     }
 
     .login-section {
         margin-bottom: 2rem;
     }
 
-    .btn-large {
-        padding: 1rem 2rem;
-        font-size: 1rem;
-        font-weight: 500;
-        border-radius: 8px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.75rem;
-        transition: all 0.2s ease;
-        border: none;
-        background: #0078d4;
-        color: white;
-        cursor: pointer;
-        width: 100%;
-        justify-content: center;
-    }
-
-    .btn-large:hover {
-        background: #106ebe;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
-    }
-
-    .microsoft-logo {
-        width: 20px;
-        height: 20px;
-    }
-
-    .info-section {
-        border-top: 1px solid #eee;
-        padding-top: 1.5rem;
-    }
-
-    .info-text {
-        font-size: 0.85rem;
-        color: #666;
-        line-height: 1.5;
+    .form-group {
+        margin-bottom: 1.5rem;
         text-align: left;
     }
 
-    .info-text strong {
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
         color: #333;
+        font-weight: 500;
+    }
+
+    .form-control-lg {
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        border: 2px solid #e1e5e9;
+        font-size: 1rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-control-lg:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        outline: none;
+    }
+
+    .btn-large {
+        width: 100%;
+        padding: 0.875rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 500;
+        border-radius: 8px;
+        border: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .btn-large:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-large:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .alert {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 8px;
+        text-align: left;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .info-section {
+        padding-top: 1.5rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .info-text {
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-align: left;
+        margin: 0;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+        border-width: 0.1rem;
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
     }
 </style>
-
-@code {
-    protected override void OnInitialized()
-    {
-        // If user is already authenticated, redirect to home
-        // This will be handled by the authorization middleware
-    }
-}
