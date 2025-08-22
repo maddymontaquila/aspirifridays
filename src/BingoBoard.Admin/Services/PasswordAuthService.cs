@@ -9,7 +9,11 @@ public class PasswordAuthService : IPasswordAuthService
 
     public PasswordAuthService(IConfiguration configuration)
     {
-        _password = configuration["Authentication:AdminPassword"] ?? "mammamia";
+        if (string.IsNullOrEmpty(configuration["Authentication:AdminPassword"]))
+        {
+            throw new ArgumentException("Admin password is not configured. Please set the 'Authentication:AdminPassword' environment variable.");
+        }
+        _password = configuration["Authentication:AdminPassword"]!;
     }
 
     public bool ValidatePassword(string password)
