@@ -36,5 +36,20 @@ namespace BingoBoard.Admin.Services
         /// Associate a bingo set with a client
         /// </summary>
         Task AssociateBingoSetAsync(string connectionId, string bingoSetId);
+
+        /// <summary>
+        /// Map a connection ID to a persistent client ID
+        /// </summary>
+        Task MapConnectionToPersistentClientAsync(string connectionId, string persistentClientId);
+
+        /// <summary>
+        /// Get persistent client ID from connection ID
+        /// </summary>
+        Task<string?> GetPersistentClientIdAsync(string connectionId);
+
+        /// <summary>
+        /// Get current connection ID from persistent client ID
+        /// </summary>
+        Task<string?> GetConnectionIdFromPersistentClientAsync(string persistentClientId);
     }
 }

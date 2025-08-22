@@ -62,6 +62,62 @@ namespace BingoBoard.Admin.Hubs
         }
 
         /// <summary>
+        /// Client requests their existing bingo set using a persistent client ID
+        /// </summary>
+        public async Task RequestExistingBingoSet(string persistentClientId, string? userName = null)
+        {
+            try
+            {
+                var connectionId = Context.ConnectionId;
+                _logger.LogInformation("Client {ConnectionId} requested existing bingo set for persistent ID {PersistentClientId}", 
+                    connectionId, persistentClientId);
+
+                // Try to get the existing bingo set
+                var bingoSet = await _bingoService.GetClientBingoSetAsync(persistentClientId);
+                
+                if (bingoSet != null)
+                {
+                    // Map the connection ID to the persistent client ID
+                    await _clientService.MapConnectionToPersistentClientAsync(connectionId, persistentClientId);
+                    
+                    // Update the connection mapping for this persistent client
+                    await _clientService.AssociateBingoSetAsync(connectionId, bingoSet.Id);
+
+                    // Send the existing bingo set to the client
+                    await Clients.Caller.SendAsync("ExistingBingoSetReceived", bingoSet);
+
+                    _logger.LogInformation("Sent existing bingo set {BingoSetId} to client {ConnectionId} for persistent ID {PersistentClientId}", 
+                        bingoSet.Id, connectionId, persistentClientId);
+                }
+                else
+                {
+                    // No existing set found, create a new one but use the persistent client ID
+                    _logger.LogInformation("No existing bingo set found for {PersistentClientId}, creating new one", 
+                        persistentClientId);
+                    
+                    // Map the connection ID to the persistent client ID
+                    await _clientService.MapConnectionToPersistentClientAsync(connectionId, persistentClientId);
+                    
+                    var newBingoSet = await _bingoService.GenerateRandomBingoSetAsync(persistentClientId);
+                    
+                    // Associate with current connection
+                    await _clientService.AssociateBingoSetAsync(connectionId, newBingoSet.Id);
+
+                    // Send the new bingo set
+                    await Clients.Caller.SendAsync("BingoSetReceived", newBingoSet);
+
+                    _logger.LogInformation("Sent new bingo set {BingoSetId} to client {ConnectionId} with persistent ID {PersistentClientId}", 
+                        newBingoSet.Id, connectionId, persistentClientId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving/creating bingo set for persistent client {PersistentClientId}", persistentClientId);
+                await Clients.Caller.SendAsync("Error", "Failed to retrieve or create bingo set");
+            }
+        }
+
+        /// <summary>
         /// Admin updates a square status for a specific client
         /// </summary>
         public async Task AdminUpdateSquare(string clientId, string squareId, bool isChecked)
@@ -78,14 +134,27 @@ namespace BingoBoard.Admin.Hubs
                     // Check for win condition
                     var hasWin = await _bingoService.CheckForWinAsync(clientId);
 
+                    // The clientId parameter might be either a persistent client ID or connection ID
+                    // Try to get connection ID first (assuming it's a persistent client ID)
+                    var connectionId = await _clientService.GetConnectionIdFromPersistentClientAsync(clientId);
+                    
+                    if (string.IsNullOrEmpty(connectionId))
+                    {
+                        // If no mapping found, assume clientId is already a connection ID
+                        connectionId = clientId;
+                    }
+
                     // Notify the specific client about the update
-                    await Clients.Client(clientId).SendAsync("SquareUpdated", new 
+                    await Clients.Client(connectionId).SendAsync("SquareUpdated", new 
                     { 
                         SquareId = squareId, 
                         IsChecked = isChecked,
                         HasWin = hasWin,
                         Timestamp = DateTime.UtcNow
                     });
+
+                    _logger.LogInformation("Notified client {ConnectionId} about admin square update for {SquareId}", 
+                        connectionId, squareId);
 
                     // Notify all admin clients about the update
                     await Clients.Others.SendAsync("AdminSquareUpdate", new 
@@ -123,8 +192,18 @@ namespace BingoBoard.Admin.Hubs
             try
             {
                 var connectionId = Context.ConnectionId;
-                _logger.LogInformation("Client {ConnectionId} requesting approval for square {SquareId} to {Status}", 
-                    connectionId, squareId, requestedState);
+                
+                // Get the persistent client ID for this connection
+                var persistentClientId = await _clientService.GetPersistentClientIdAsync(connectionId);
+                if (string.IsNullOrEmpty(persistentClientId))
+                {
+                    _logger.LogError("No persistent client ID found for connection {ConnectionId}", connectionId);
+                    await Clients.Caller.SendAsync("Error", "Client not properly registered");
+                    return;
+                }
+                
+                _logger.LogInformation("Client {ConnectionId} (persistent: {PersistentClientId}) requesting approval for square {SquareId} to {Status}", 
+                    connectionId, persistentClientId, squareId, requestedState);
 
                 // First check if the square is already in the requested state globally
                 var globallyCheckedSquares = await _bingoService.GetGloballyCheckedSquaresAsync();
@@ -158,7 +237,7 @@ namespace BingoBoard.Admin.Hubs
                 }
 
                 // Square is not in the requested state, create a normal approval request
-                var approvalId = await _bingoService.RequestSquareApprovalAsync(connectionId, squareId, requestedState);
+                var approvalId = await _bingoService.RequestSquareApprovalAsync(persistentClientId, squareId, requestedState);
                 
                 // Update client activity
                 await _clientService.UpdateClientActivityAsync(connectionId);
@@ -427,18 +506,29 @@ namespace BingoBoard.Admin.Hubs
                     // Notify all clients who had related approval requests
                     foreach (var relatedApproval in relatedApprovals)
                     {
-                        await Clients.Client(relatedApproval.ClientId).SendAsync("ApprovalRequestApproved", new 
-                        { 
-                            ApprovalId = relatedApproval.Id,
-                            SquareId = approval.SquareId,
-                            SquareLabel = squareLabel,
-                            NewState = approval.RequestedState,
-                            Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' has been approved!",
-                            Timestamp = DateTime.UtcNow
-                        });
+                        // Get the current connection ID for this persistent client ID
+                        var connectionId = await _clientService.GetConnectionIdFromPersistentClientAsync(relatedApproval.ClientId);
+                        
+                        if (!string.IsNullOrEmpty(connectionId))
+                        {
+                            await Clients.Client(connectionId).SendAsync("ApprovalRequestApproved", new 
+                            { 
+                                ApprovalId = relatedApproval.Id,
+                                SquareId = approval.SquareId,
+                                SquareLabel = squareLabel,
+                                NewState = approval.RequestedState,
+                                Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' has been approved!",
+                                Timestamp = DateTime.UtcNow
+                            });
 
-                        _logger.LogInformation("Notified client {ClientId} about approved request {ApprovalId}", 
-                            relatedApproval.ClientId, relatedApproval.Id);
+                            _logger.LogInformation("Notified client {ConnectionId} (persistent: {PersistentClientId}) about approved request {ApprovalId}", 
+                                connectionId, relatedApproval.ClientId, relatedApproval.Id);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Could not find active connection for persistent client {PersistentClientId} to notify about approval {ApprovalId}", 
+                                relatedApproval.ClientId, relatedApproval.Id);
+                        }
                     }
 
                     // Notify all admin clients about the approval (using count for clarity)
@@ -521,20 +611,31 @@ namespace BingoBoard.Admin.Hubs
                     // Notify all clients who had related approval requests
                     foreach (var relatedApproval in relatedApprovals)
                     {
-                        await Clients.Client(relatedApproval.ClientId).SendAsync("ApprovalRequestDenied", new 
-                        { 
-                            ApprovalId = relatedApproval.Id,
-                            SquareId = approval.SquareId,
-                            SquareLabel = squareLabel,
-                            RequestedState = approval.RequestedState,
-                            Reason = reason,
-                            Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' was denied" + 
-                                      (string.IsNullOrEmpty(reason) ? "" : $": {reason}"),
-                            Timestamp = DateTime.UtcNow
-                        });
+                        // Get the current connection ID for this persistent client ID
+                        var connectionId = await _clientService.GetConnectionIdFromPersistentClientAsync(relatedApproval.ClientId);
+                        
+                        if (!string.IsNullOrEmpty(connectionId))
+                        {
+                            await Clients.Client(connectionId).SendAsync("ApprovalRequestDenied", new 
+                            { 
+                                ApprovalId = relatedApproval.Id,
+                                SquareId = approval.SquareId,
+                                SquareLabel = squareLabel,
+                                RequestedState = approval.RequestedState,
+                                Reason = reason,
+                                Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' was denied" + 
+                                          (string.IsNullOrEmpty(reason) ? "" : $": {reason}"),
+                                Timestamp = DateTime.UtcNow
+                            });
 
-                        _logger.LogInformation("Notified client {ClientId} about denied request {ApprovalId}", 
-                            relatedApproval.ClientId, relatedApproval.Id);
+                            _logger.LogInformation("Notified client {ConnectionId} (persistent: {PersistentClientId}) about denied request {ApprovalId}", 
+                                connectionId, relatedApproval.ClientId, relatedApproval.Id);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Could not find active connection for persistent client {PersistentClientId} to notify about denial {ApprovalId}", 
+                                relatedApproval.ClientId, relatedApproval.Id);
+                        }
                     }
 
                     // Notify all admin clients about the denial (using count for clarity)

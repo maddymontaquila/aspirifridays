@@ -57,6 +57,14 @@
             <i class="bi bi-download"></i>
             <span>Download</span>
           </button>
+          
+          <button @click="requestNewBoard" 
+                  :disabled="!isConnected || isLoading"
+                  class="btn btn--secondary"
+                  aria-label="Get a completely new bingo board">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span>New Board</span>
+          </button>
         </div>
         
         <AspireCallout />
@@ -69,6 +77,7 @@
 import { BingoGameLogic, KeyboardNavigation } from '../utils/bingoLogic.js'
 import { BingoImageGenerator } from '../utils/imageGenerator.js'
 import { signalRService } from '../services/signalrService.js'
+import { getPersistentClientId, clearPersistentClientId } from '../utils/clientId.js'
 
 // Component imports
 import BingoSquare from './BingoSquare.vue'
@@ -95,7 +104,8 @@ export default {
       currentBingoSet: null,
       isLoading: false,
       error: null,
-      pendingSquares: new Set() // Track squares that are pending approval
+      pendingSquares: new Set(), // Track squares that are pending approval
+      persistentClientId: null
     }
   },
   computed: {
@@ -118,9 +128,14 @@ export default {
         this.isLoading = true
         this.error = null
 
+        // Get or create persistent client ID
+        this.persistentClientId = getPersistentClientId()
+        console.log('Using persistent client ID:', this.persistentClientId)
+
         // Set up event listeners
         signalRService.addEventListener('connectionStateChanged', this.onConnectionStateChanged)
         signalRService.addEventListener('bingoSetReceived', this.onBingoSetReceived)
+        signalRService.addEventListener('existingBingoSetReceived', this.onExistingBingoSetReceived)
         signalRService.addEventListener('squareUpdated', this.onSquareUpdated)
         signalRService.addEventListener('squareUpdateConfirmed', this.onSquareUpdateConfirmed)
         signalRService.addEventListener('bingoAchieved', this.onBingoAchieved)
@@ -135,11 +150,11 @@ export default {
         // Connect to SignalR hub
         await signalRService.connect()
         
-        // Try to load saved state first
-        if (!this.loadState()) {
-          // No saved state, request a new bingo set
-          await this.requestNewBingoSet()
-        }
+        // Load cached state for immediate display (if available)
+        this.loadStateAsCache()
+        
+        // Always request current state from server (authoritative source)
+        await this.requestExistingBingoSet()
       } catch (error) {
         console.error('Failed to initialize SignalR:', error)
         this.error = `Failed to connect to server: ${error.message}`
@@ -164,16 +179,30 @@ export default {
     },
 
     /**
+     * Request existing bingo set from the server using persistent client ID
+     */
+    async requestExistingBingoSet() {
+      try {
+        this.isLoading = true
+        this.error = null
+        await signalRService.requestExistingBingoSet(this.persistentClientId)
+      } catch (error) {
+        console.error('Failed to request existing bingo set:', error)
+        this.error = `Failed to get bingo board: ${error.message}`
+        this.isLoading = false
+      }
+    },
+
+    /**
      * Convert server bingo set to local board format
      */
-    convertServerBingoSetToBoard(bingoSet) {
-      return bingoSet.squares.map((square, index) => ({
-        id: square.id,
-        label: square.label,
-        type: square.type || 'regular',
-        marked: square.isChecked,
-        index: index
-      }))
+    convertServerBingoSetToBoard(serverBingoSet) {
+      return serverBingoSet.squares.map(square => ({
+        id: square.id || square.Id,
+        label: square.label || square.Label,
+        type: square.type || square.Type,
+        marked: square.isChecked || square.IsChecked || false
+      }));
     },
 
     /**
@@ -227,41 +256,53 @@ export default {
       return BingoGameLogic.isPartOfBingo(index, this.bingoLines)
     },
     
-    resetBoard() {
-      // Request a new bingo set from the server
+    requestNewBoard() {
+      // Clear the persistent client ID to get a completely fresh start
+      clearPersistentClientId()
+      this.persistentClientId = getPersistentClientId()
+      console.log('Requesting new board with fresh persistent client ID:', this.persistentClientId)
+      
+      // Clear local storage for the board state
+      localStorage.removeItem('aspirifridays-bingo')
+      
+      // Request a completely new bingo set from the server
       this.requestNewBingoSet()
     },
     
     saveState() {
-      if (this.currentBingoSet) {
+      if (this.currentBingoSet && this.persistentClientId) {
         localStorage.setItem('aspirifridays-bingo', JSON.stringify({
           bingoSet: this.currentBingoSet,
           board: this.currentBoard,
           bingoLines: this.bingoLines,
           showInitialCelebration: this.showInitialCelebration,
+          persistentClientId: this.persistentClientId,
           timestamp: Date.now()
         }))
       }
     },
     
-    loadState() {
+    loadStateAsCache() {
+      // Load saved state as immediate cache while waiting for server response
       const saved = localStorage.getItem('aspirifridays-bingo')
       if (saved) {
         try {
           const state = JSON.parse(saved)
           const age = Date.now() - (state.timestamp || 0)
           
-          // Only load state if it's less than 24 hours old
-          if (age < 24 * 60 * 60 * 1000 && state.bingoSet && state.board) {
+          // Only load state if it's less than 24 hours old and matches current persistent client ID
+          if (age < 24 * 60 * 60 * 1000 && state.bingoSet && state.board && 
+              state.persistentClientId === this.persistentClientId) {
             this.currentBingoSet = state.bingoSet
             this.currentBoard = state.board
             this.bingoLines = state.bingoLines || []
-            this.showInitialCelebration = this.bingoLines.length === 0
-            console.log('Loaded saved bingo board from localStorage')
+            this.showInitialCelebration = state.showInitialCelebration !== undefined ? 
+              state.showInitialCelebration : (this.bingoLines.length === 0)
+            console.log('Loaded cached bingo board from localStorage (waiting for server update)')
             return true
           }
         } catch (error) {
-          console.error('Failed to load saved state:', error)
+          console.error('Failed to load cached state:', error)
         }
       }
       return false
@@ -311,12 +352,8 @@ export default {
     // SignalR event handlers
     onConnectionStateChanged(state) {
       this.connectionState = state
-      if (state.connected && !state.reconnecting) {
-        // Connection established or restored
-        if (!this.currentBoard.length) {
-          this.requestNewBingoSet()
-        }
-      }
+      // Don't automatically request board on reconnection since we handle it in initialization
+      // This prevents duplicate requests
     },
 
     onBingoSetReceived(bingoSet) {
@@ -328,6 +365,24 @@ export default {
       this.isLoading = false
       this.error = null
       this.checkForBingo()
+      this.saveState()
+    },
+
+    onExistingBingoSetReceived(bingoSet) {
+      console.log('Received existing bingo set from server:', bingoSet)
+      this.currentBingoSet = bingoSet
+      this.currentBoard = this.convertServerBingoSetToBoard(bingoSet)
+      this.isLoading = false
+      this.error = null
+      this.checkForBingo()
+      
+      // For existing sets, don't automatically show celebration since user might have seen it before
+      // Let the bingo check determine if celebration should be shown based on current win state
+      if (this.bingoLines.length > 0) {
+        this.showInitialCelebration = false // Don't show initial celebration for existing wins
+      }
+      
+      // Save the server state to localStorage for next time
       this.saveState()
     },
 
@@ -453,6 +508,7 @@ export default {
     // Clean up SignalR event listeners
     signalRService.removeEventListener('connectionStateChanged', this.onConnectionStateChanged)
     signalRService.removeEventListener('bingoSetReceived', this.onBingoSetReceived)
+    signalRService.removeEventListener('existingBingoSetReceived', this.onExistingBingoSetReceived)
     signalRService.removeEventListener('squareUpdated', this.onSquareUpdated)
     signalRService.removeEventListener('squareUpdateConfirmed', this.onSquareUpdateConfirmed)
     signalRService.removeEventListener('bingoAchieved', this.onBingoAchieved)

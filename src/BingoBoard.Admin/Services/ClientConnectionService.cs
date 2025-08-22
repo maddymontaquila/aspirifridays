@@ -48,13 +48,27 @@ namespace BingoBoard.Admin.Services
         {
             try
             {
+                // First, get the persistent client ID to clean up reverse mapping
+                var persistentClientId = await GetPersistentClientIdAsync(connectionId);
+                
                 var clients = await GetAllClientsAsync();
                 var removed = clients.RemoveAll(c => c.ConnectionId == connectionId);
                 
                 if (removed > 0)
                 {
                     await SaveClientsAsync(clients);
-                    _logger.LogInformation("Removed client {ConnectionId}", connectionId);
+                    
+                    // Clean up the bidirectional mapping
+                    var connectionToPersistentKey = $"connection_to_persistent_{connectionId}";
+                    await _cache.RemoveAsync(connectionToPersistentKey);
+                    
+                    if (!string.IsNullOrEmpty(persistentClientId))
+                    {
+                        var persistentToConnectionKey = $"persistent_to_connection_{persistentClientId}";
+                        await _cache.RemoveAsync(persistentToConnectionKey);
+                    }
+                    
+                    _logger.LogInformation("Removed client {ConnectionId} and cleaned up mappings", connectionId);
                 }
             }
             catch (Exception ex)
@@ -136,6 +150,63 @@ namespace BingoBoard.Admin.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error associating bingo set with client {ConnectionId}", connectionId);
+            }
+        }
+
+        public async Task MapConnectionToPersistentClientAsync(string connectionId, string persistentClientId)
+        {
+            try
+            {
+                // Store the mapping in both directions for efficient lookup
+                var connectionToPersistentKey = $"connection_to_persistent_{connectionId}";
+                var persistentToConnectionKey = $"persistent_to_connection_{persistentClientId}";
+                
+                await _cache.SetStringAsync(connectionToPersistentKey, persistentClientId, new DistributedCacheEntryOptions
+                {
+                    SlidingExpiration = TimeSpan.FromHours(24)
+                });
+                
+                await _cache.SetStringAsync(persistentToConnectionKey, connectionId, new DistributedCacheEntryOptions
+                {
+                    SlidingExpiration = TimeSpan.FromHours(24)
+                });
+
+                _logger.LogInformation("Mapped connection {ConnectionId} to persistent client {PersistentClientId}", 
+                    connectionId, persistentClientId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error mapping connection {ConnectionId} to persistent client {PersistentClientId}", 
+                    connectionId, persistentClientId);
+            }
+        }
+
+        public async Task<string?> GetPersistentClientIdAsync(string connectionId)
+        {
+            try
+            {
+                var mappingKey = $"connection_to_persistent_{connectionId}";
+                return await _cache.GetStringAsync(mappingKey);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting persistent client ID for connection {ConnectionId}", connectionId);
+                return null;
+            }
+        }
+
+        public async Task<string?> GetConnectionIdFromPersistentClientAsync(string persistentClientId)
+        {
+            try
+            {
+                // Use the direct reverse mapping for efficiency
+                var persistentToConnectionKey = $"persistent_to_connection_{persistentClientId}";
+                return await _cache.GetStringAsync(persistentToConnectionKey);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting connection ID for persistent client {PersistentClientId}", persistentClientId);
+                return null;
             }
         }
 

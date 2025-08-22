@@ -17,24 +17,18 @@ export class SignalRService {
     try {
       // Get the admin service URL from environment variables
       // Try different possible environment variable formats
-      let adminUrl = localStorage.getItem('debug-admin-url') ||  // For debugging
-                     import.meta.env.services__boardadmin__http__0 || 
-                     import.meta.env.services__boardadmin__https__0 ||
-                     import.meta.env.VITE_ADMIN_URL
+      let adminUrl = import.meta.env.VITE_ADMIN_URL
 
-      // If no environment variable is found, use localhost fallback
+      // For debugging, temporarily hardcode the admin URL
       if (!adminUrl) {
         adminUrl = 'https://localhost:7207' // fallback for development
-        console.warn('No admin service URL found in environment variables, using fallback:', adminUrl)
+        console.warn('No VITE_ADMIN_URL found, using fallback:', adminUrl)
       }
 
-      console.log('Available environment variables:')
-      Object.keys(import.meta.env).forEach(key => {
-        if (key.includes('board_admin') || key.includes('board-admin')) {
-          console.log(`  ${key}: ${import.meta.env[key]}`)
-        }
-      })
-      console.log('Connecting to SignalR hub at:', adminUrl)
+      console.log('Environment variables available:')
+      console.log('VITE_ADMIN_URL:', import.meta.env.VITE_ADMIN_URL)
+      console.log('All env vars:', import.meta.env)
+      console.log('Using admin URL:', adminUrl)
 
       this.connection = new HubConnectionBuilder()
         .withUrl(`${adminUrl}/bingohub`)
@@ -65,6 +59,11 @@ export class SignalRService {
       this.connection.on('BingoSetReceived', (bingoSet) => {
         console.log('Received bingo set:', bingoSet)
         this.notifyListeners('bingoSetReceived', bingoSet)
+      })
+
+      this.connection.on('ExistingBingoSetReceived', (bingoSet) => {
+        console.log('Received existing bingo set:', bingoSet)
+        this.notifyListeners('existingBingoSetReceived', bingoSet)
       })
 
       this.connection.on('SquareUpdated', (update) => {
@@ -160,6 +159,22 @@ export class SignalRService {
       await this.connection.invoke('RequestBingoSet', userName)
     } catch (error) {
       console.error('Failed to request bingo set:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Request existing bingo set using persistent client ID
+   */
+  async requestExistingBingoSet(persistentClientId, userName = null) {
+    if (!this.isConnected || !this.connection) {
+      throw new Error('Not connected to SignalR hub')
+    }
+    
+    try {
+      await this.connection.invoke('RequestExistingBingoSet', persistentClientId, userName)
+    } catch (error) {
+      console.error('Failed to request existing bingo set:', error)
       throw error
     }
   }

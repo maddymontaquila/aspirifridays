@@ -81,5 +81,10 @@ namespace BingoBoard.Admin.Services
         /// Clean up expired approval requests
         /// </summary>
         Task CleanupExpiredApprovalsAsync();
+
+        /// <summary>
+        /// Update the connection ID for an existing client's bingo set
+        /// </summary>
+        Task<bool> UpdateClientConnectionAsync(string oldClientId, string newClientId);
     }
 }

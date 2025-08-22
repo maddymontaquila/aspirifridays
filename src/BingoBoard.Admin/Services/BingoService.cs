@@ -101,6 +101,46 @@ namespace BingoBoard.Admin.Services
             }
         }
 
+        private async Task UpdateSquareStatusAsync(string clientId, int squareId, bool isChecked)
+        {
+            try
+            {
+                var existingSet = await GetClientBingoSetAsync(clientId);
+                if (existingSet?.Squares != null)
+                {
+                    var square = existingSet.Squares.FirstOrDefault(s => s.Id == squareId.ToString());
+                    if (square != null)
+                    {
+                        square.IsChecked = isChecked;
+                        
+                        // Save updated client board state
+                        var cacheKey = $"bingo_set_{clientId}";
+                        var serializedSet = JsonSerializer.Serialize(existingSet);
+                        var cacheOptions = new DistributedCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24)
+                        };
+                        await _cache.SetStringAsync(cacheKey, serializedSet, cacheOptions);
+                        
+                        _logger.LogInformation("Updated square {SquareId} status to {IsChecked} for client {ClientId}", 
+                            squareId, isChecked, clientId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Square {SquareId} not found for client {ClientId}", squareId, clientId);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("No bingo set found for client {ClientId}", clientId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating square status for client {ClientId}", clientId);
+            }
+        }
+
         public async Task<BingoSet?> GetClientBingoSetAsync(string clientId)
         {
             try
@@ -416,7 +456,10 @@ namespace BingoBoard.Admin.Services
                     var serializedApproval = JsonSerializer.Serialize(relatedApproval);
                     await _cache.SetStringAsync(cacheKey, serializedApproval);
 
-                    _logger.LogInformation("Approved related square request {ApprovalId} for client {ClientId}", 
+                    // CRITICAL FIX: Update the client's board state in the server cache
+                    await UpdateSquareStatusAsync(relatedApproval.ClientId, approval.SquareId, approval.RequestedState);
+
+                    _logger.LogInformation("Approved related square request {ApprovalId} for client {ClientId} and updated their board state", 
                         relatedApproval.Id, relatedApproval.ClientId);
                 }
 
@@ -547,6 +590,39 @@ namespace BingoBoard.Admin.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cleaning up expired approvals");
+            }
+        }
+
+        public async Task<bool> UpdateClientConnectionAsync(string oldClientId, string newClientId)
+        {
+            try
+            {
+                // Get the existing bingo set
+                var bingoSet = await GetClientBingoSetAsync(oldClientId);
+                if (bingoSet == null) return false;
+
+                // Don't change the ClientId - keep it as the persistent client ID
+                // Just update the timestamp
+                bingoSet.LastUpdated = DateTime.UtcNow;
+
+                // Store under the same persistent client ID (the cache key doesn't change)
+                var cacheKey = $"bingo_set_{oldClientId}";
+                var serializedSet = JsonSerializer.Serialize(bingoSet);
+                await _cache.SetStringAsync(cacheKey, serializedSet, new DistributedCacheEntryOptions
+                {
+                    SlidingExpiration = TimeSpan.FromHours(24)
+                });
+
+                _logger.LogInformation("Updated timestamp for persistent client {PersistentClientId} with new connection {NewConnectionId}", 
+                    oldClientId, newClientId);
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating client connection for persistent client {PersistentClientId} with new connection {NewConnectionId}", 
+                    oldClientId, newClientId);
+                return false;
             }
         }
 
