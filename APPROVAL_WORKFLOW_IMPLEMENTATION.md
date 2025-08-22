@@ -7,25 +7,30 @@ The bingo board application has been updated with an **inverted approval workflo
 ## How It Works
 
 ### For Regular Users (Bingo Players):
-1. **Request Square Marking**: When a user clicks a square, instead of marking it immediately, it sends an approval request to the admin
-2. **Pending State**: The square enters a "pending approval" state
-3. **Notification**: User receives confirmation that their request was submitted
-4. **Response**: User gets notified when admin approves or denies the request
-5. **Auto-Update**: If approved, the square is automatically marked on all boards
+
+1. **Immediate Local Marking**: When a user clicks a square, it gets checked off immediately on their own board for instant gratification
+2. **Background Approval Request**: Simultaneously sends an approval request to the admin for global tracking
+3. **Personal Experience**: Users can enjoy the thrill of checking off squares without waiting
+4. **Approval Notifications**: User gets notified when admin approves or denies the request (for tracking purposes)
+5. **No Force Updates**: Other users' boards are NOT automatically updated - they mark their own squares
 
 ### For Admin Users:
+
 1. **Real-time Notifications**: Receive instant notifications when users request square markings
-2. **Approval Dashboard**: View all pending approval requests
+2. **Approval Dashboard**: View all pending approval requests with user context
 3. **Quick Actions**: Approve or deny requests with optional reasons
-4. **Global Update**: Approved squares are automatically marked on all connected boards
+4. **Admin Board Update**: When approving a request, the square gets checked off on the admin's own board
+5. **Global Tracking**: Approved squares are tracked globally for statistics and oversight, but don't force-update other players' boards
 
 ## New Backend Components
 
 ### Models
+
 - **`PendingApproval`**: Tracks approval requests with status, timestamps, and metadata
 - **`ApprovalStatus`**: Enum for Pending, Approved, Denied, Expired
 
 ### Services
+
 - **Enhanced `BingoService`**: 
   - `RequestSquareApprovalAsync()`: Create new approval requests
   - `GetPendingApprovalsAsync()`: Retrieve pending requests
@@ -36,6 +41,7 @@ The bingo board application has been updated with an **inverted approval workflo
 - **`ApprovalCleanupService`**: Background service that runs every 30 minutes to clean up expired requests
 
 ### SignalR Hub Updates
+
 - **`RequestSquareApproval`**: Client method to request approval
 - **`ApproveSquareRequest`**: Admin method to approve requests
 - **`DenySquareRequest`**: Admin method to deny requests
@@ -43,13 +49,17 @@ The bingo board application has been updated with an **inverted approval workflo
 
 ## New Frontend Integration
 
-### Updated SignalR Service
-```javascript
-// For regular users - request approval instead of direct update
-await signalRService.requestSquareApproval(squareId, true)
+The workflow now supports **hybrid marking** where users get immediate satisfaction while admins maintain oversight:
 
-// For admins - approve requests
-await signalRService.approveSquareRequest(approvalId)
+### Updated SignalR Service
+
+```javascript
+// For regular users - immediate local update + background approval request
+await signalRService.updateSquareLocally(squareId, true) // Immediate local update
+await signalRService.requestSquareApproval(squareId, true) // Background approval request
+
+// For admins - approve requests (updates admin's board only)
+await signalRService.approveSquareRequest(approvalId) // Updates admin board + global tracking
 
 // For admins - deny requests
 await signalRService.denySquareRequest(approvalId, "Reason for denial")
@@ -59,6 +69,7 @@ await signalRService.getPendingApprovals()
 ```
 
 ### New Event Listeners
+
 - **`approvalRequestSubmitted`**: Fired when user's request is submitted
 - **`approvalRequestApproved`**: Fired when admin approves user's request
 - **`approvalRequestDenied`**: Fired when admin denies user's request
@@ -69,45 +80,68 @@ await signalRService.getPendingApprovals()
 ## Frontend Changes Needed
 
 ### 1. Update Square Click Handler
-Replace the direct square update logic:
+
+Replace the old logic with the new hybrid approach:
+
 ```javascript
-// OLD: Direct update
+// OLD: Direct global update
 await signalRService.updateSquare(squareId, !isChecked)
 
-// NEW: Request approval
-await signalRService.requestSquareApproval(squareId, !isChecked)
+// NEW: Hybrid approach - immediate local satisfaction + background approval
+async function handleSquareClick(squareId, isChecked) {
+  // 1. Update locally immediately for user satisfaction
+  updateSquareLocally(squareId, !isChecked)
+  
+  // 2. Send background approval request for admin oversight
+  await signalRService.requestSquareApproval(squareId, !isChecked)
+  
+  // 3. Show subtle notification that approval was requested
+  showDiscreetNotification("Square marked! (Approval requested for tracking)")
+}
 ```
 
-### 2. Add Approval Status UI
-- Show "pending approval" status on squares
-- Display approval/denial notifications
-- Add loading states during approval process
+### 2. Update Approval Status UI
+
+The UI now needs to reflect the new hybrid approach:
+
+- Show discrete "approval requested" indicators (not blocking)
+- Display approval/denial notifications as informational only
+- Remove pending/loading states that block user interaction
+- Focus on admin approval dashboard rather than client-side approval status
 
 ### 3. Admin Dashboard Features
+
 - List of pending approval requests
 - Approve/Deny buttons for each request
 - Real-time notifications for new requests
 - Optional reason field for denials
 
 ### 4. Event Handling
+
+Updated event handling for the new hybrid approach:
+
 ```javascript
-// Listen for approval responses
+// Listen for approval responses (now informational only)
 signalRService.addEventListener('approvalRequestSubmitted', (response) => {
-  // Show "request submitted" message
-  showNotification(`Request submitted for "${response.SquareId}"`)
+  // Show discrete "tracking request submitted" message
+  showDiscreetNotification(`Square marked and tracked for "${response.SquareId}"`)
 })
 
 signalRService.addEventListener('approvalRequestApproved', (response) => {
-  // Show success message and update square
-  showNotification(`Request approved: ${response.Message}`)
+  // Show informational message (square already checked locally)
+  showDiscreetNotification(`Official approval received: ${response.Message}`, 'success')
+  // For admins: update their board if they're not the one who originally marked it
+  if (isAdmin) {
+    updateAdminSquareFromApproval(response.SquareId, response.IsChecked)
+  }
 })
 
 signalRService.addEventListener('approvalRequestDenied', (response) => {
-  // Show denial message
-  showNotification(`Request denied: ${response.Message}`, 'error')
+  // Show informational denial message
+  showDiscreetNotification(`Tracking denied: ${response.Message}`, 'info')
 })
 
-// For admin interface
+// For admin interface (unchanged)
 signalRService.addEventListener('newApprovalRequest', (request) => {
   // Add to pending approvals list
   addToPendingApprovals(request)
@@ -129,15 +163,53 @@ signalRService.addEventListener('newApprovalRequest', (request) => {
 
 ## Benefits
 
-1. **Democratic Marking**: All users can contribute to marking squares
-2. **Quality Control**: Admin oversight prevents incorrect markings
-3. **Real-time Feedback**: Users know immediately when requests are processed
-4. **Audit Trail**: All approval decisions are logged with timestamps
-5. **Automatic Cleanup**: Expired requests are automatically removed
+1. **Immediate User Satisfaction**: Users get the thrill of checking off squares instantly
+2. **No Blocking Workflow**: Users don't wait for admin approval to enjoy the game
+3. **Admin Oversight**: Admins still track and validate square markings for accuracy
+4. **Personal Experience**: Each user gets their own satisfying bingo experience
+5. **Global Tracking**: Official approvals are tracked for statistics and oversight
+6. **Hybrid Approach**: Combines the best of both immediate gratification and quality control
 
 ## Backward Compatibility
 
 The old `updateSquare` method is maintained but deprecated, automatically redirecting to the new approval workflow. This ensures existing frontend code continues to work while encouraging migration to the new system.
+
+## Key Changes for Hybrid Approach
+
+### Backend Changes Needed
+
+1. **Modified SignalR Hub Methods**:
+   - `ApproveSquareRequest`: Should update admin's board immediately, not broadcast to all clients
+   - `RequestSquareApproval`: Should only track the request, not prevent client-side updates
+   - Add new method: `UpdateAdminBoard`: Specifically for updating admin boards when they approve requests
+
+2. **BingoService Updates**:
+   - Separate "local updates" from "global tracking"
+   - Admin approvals should update admin boards and global statistics
+   - Don't broadcast approved squares to all clients automatically
+
+3. **Database/Cache Strategy**:
+   - Track "official approvals" separately from "client states"
+   - Admin boards reflect officially approved squares
+   - Client boards reflect their own interactions
+   - Global statistics based on approved squares only
+
+### Frontend Changes Needed
+
+1. **Client Square Interaction**:
+   - Update local state immediately on click
+   - Send background approval request
+   - Show discrete "tracking requested" notification
+
+2. **Admin Interface**:
+   - When approving requests, update admin's own board
+   - Show approval actions in activity log
+   - Display statistics based on approved squares
+
+3. **Event Handling**:
+   - `approvalRequestApproved` should update admin boards only
+   - Remove automatic square updates for regular clients
+   - Keep discrete notifications for tracking status
 
 ## Troubleshooting
 

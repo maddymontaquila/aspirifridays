@@ -238,6 +238,32 @@ namespace BingoBoard.Admin.Services
             }
         }
 
+        public async Task<bool> UpdateSquareForAdminAsync(string adminClientId, string squareId, bool isChecked)
+        {
+            try
+            {
+                // Update only the admin's bingo set, bypassing approval workflow
+                var success = await UpdateSquareStatusAsync(adminClientId, squareId, isChecked);
+                
+                if (success)
+                {
+                    // Store the global state for tracking but don't broadcast to other clients
+                    var globalKey = $"global_square_{squareId}";
+                    await _cache.SetStringAsync(globalKey, isChecked.ToString());
+
+                    _logger.LogInformation("Updated square {SquareId} for admin {AdminId} without global broadcast", 
+                        squareId, adminClientId);
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating square for admin {AdminId}", adminClientId);
+                return false;
+            }
+        }
+
         public async Task<List<string>> GetGloballyCheckedSquaresAsync()
         {
             try
@@ -268,6 +294,19 @@ namespace BingoBoard.Admin.Services
         {
             try
             {
+                // Check if the square is already approved globally with the requested state
+                var globalKey = $"global_square_{squareId}";
+                var globalStateStr = await _cache.GetStringAsync(globalKey);
+                
+                if (bool.TryParse(globalStateStr, out bool currentGlobalState) && currentGlobalState == requestedState)
+                {
+                    _logger.LogInformation("Square {SquareId} is already globally approved with state {RequestedState}, skipping approval request for client {ClientId}",
+                        squareId, requestedState, clientId);
+                    
+                    // Return a special marker to indicate already approved
+                    return "ALREADY_APPROVED";
+                }
+
                 // Get the square details for the label
                 var square = _allSquares.FirstOrDefault(s => s.Id == squareId);
                 if (square == null)
@@ -381,10 +420,11 @@ namespace BingoBoard.Admin.Services
                         relatedApproval.Id, relatedApproval.ClientId);
                 }
 
-                // Apply the change globally to all clients (only once)
-                await UpdateSquareGloballyAsync(approval.SquareId, approval.RequestedState);
+                // Update ONLY the admin's board, not globally - this is the key change
+                // The admin gets the square checked off on their board when they approve it
+                await UpdateSquareForAdminAsync(adminId, approval.SquareId, approval.RequestedState);
 
-                _logger.LogInformation("Approved {Count} square requests for square {SquareId} by admin {AdminId}", 
+                _logger.LogInformation("Approved {Count} square requests for square {SquareId} by admin {AdminId} - updated admin board only", 
                     relatedApprovals.Count, approval.SquareId, adminId);
                 return true;
             }

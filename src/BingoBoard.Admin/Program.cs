@@ -11,6 +11,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add Aspire service defaults
 builder.AddServiceDefaults();
 
+// Get the frontend URL from service discovery
+var frontendURL = Environment.GetEnvironmentVariable("services__bingoboard__http__0") ?? 
+                  Environment.GetEnvironmentVariable("services__bingoboard__https__0") ?? 
+                  "http+https://bingoboard"; // Fallback to hardcoded value if service discovery not available
+
 // Check if authentication should be disabled for development
 var disableAuth = builder.Configuration.GetValue<bool>("Development:DisableAuthentication");
 
@@ -69,7 +74,7 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy
-            .WithOrigins("http+https://bingoboard")
+            .WithOrigins(frontendURL)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials(); // Required for SignalR

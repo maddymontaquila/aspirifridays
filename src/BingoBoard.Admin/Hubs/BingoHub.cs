@@ -126,15 +126,47 @@ namespace BingoBoard.Admin.Hubs
                 _logger.LogInformation("Client {ConnectionId} requesting approval for square {SquareId} to {Status}", 
                     connectionId, squareId, requestedState);
 
+                // First check if the square is already in the requested state globally
+                var globallyCheckedSquares = await _bingoService.GetGloballyCheckedSquaresAsync();
+                bool isCurrentlyChecked = globallyCheckedSquares.Contains(squareId);
+
+                // If the square is already in the requested state, auto-approve silently
+                if (isCurrentlyChecked == requestedState)
+                {
+                    _logger.LogInformation("Auto-approving request for square {SquareId} as it's already in the requested state {RequestedState}", 
+                        squareId, requestedState);
+
+                    // Get the square details for notification
+                    var allSquares = await _bingoService.GetAllSquaresAsync();
+                    var square = allSquares.FirstOrDefault(s => s.Id == squareId);
+                    var squareLabel = square?.Label ?? squareId;
+
+                    // Notify the client that their request has been auto-approved
+                    await Clients.Caller.SendAsync("ApprovalRequestApproved", new 
+                    { 
+                        ApprovalId = "auto-approved",
+                        SquareId = squareId,
+                        SquareLabel = squareLabel,
+                        NewState = requestedState,
+                        Message = $"Your request to {(requestedState ? "check" : "uncheck")} '{squareLabel}' was automatically approved (already in requested state)!",
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Auto-approved request for client {ConnectionId} for square {SquareId}", 
+                        connectionId, squareId);
+                    return;
+                }
+
+                // Square is not in the requested state, create a normal approval request
                 var approvalId = await _bingoService.RequestSquareApprovalAsync(connectionId, squareId, requestedState);
                 
                 // Update client activity
                 await _clientService.UpdateClientActivityAsync(connectionId);
 
                 // Get the square details for notification
-                var allSquares = await _bingoService.GetAllSquaresAsync();
-                var square = allSquares.FirstOrDefault(s => s.Id == squareId);
-                var squareLabel = square?.Label ?? squareId;
+                var allSquares2 = await _bingoService.GetAllSquaresAsync();
+                var square2 = allSquares2.FirstOrDefault(s => s.Id == squareId);
+                var squareLabel2 = square2?.Label ?? squareId;
 
                 // Confirm request submission to the client
                 await Clients.Caller.SendAsync("ApprovalRequestSubmitted", new 
@@ -142,7 +174,7 @@ namespace BingoBoard.Admin.Hubs
                     ApprovalId = approvalId,
                     SquareId = squareId,
                     RequestedState = requestedState,
-                    Message = $"Request to {(requestedState ? "check" : "uncheck")} '{squareLabel}' has been submitted for admin approval",
+                    Message = $"Request to {(requestedState ? "check" : "uncheck")} '{squareLabel2}' has been submitted for admin approval",
                     Timestamp = DateTime.UtcNow
                 });
 
@@ -152,7 +184,7 @@ namespace BingoBoard.Admin.Hubs
                     ApprovalId = approvalId,
                     ClientId = connectionId,
                     SquareId = squareId,
-                    SquareLabel = squareLabel,
+                    SquareLabel = squareLabel2,
                     RequestedState = requestedState,
                     Timestamp = DateTime.UtcNow
                 });
@@ -422,16 +454,25 @@ namespace BingoBoard.Admin.Hubs
                         Timestamp = DateTime.UtcNow
                     });
 
-                    // Send global square update to all clients (including the ones who requested it)
-                    await Clients.All.SendAsync("GlobalSquareUpdate", new 
+                    // Send admin-only square update to show the square as checked in admin interface
+                    // This only goes to other admin clients, not to all clients
+                    var adminUpdateData = new 
                     { 
                         SquareId = approval.SquareId, 
                         IsChecked = approval.RequestedState,
                         Timestamp = DateTime.UtcNow,
                         Message = $"'{squareLabel}' has been {(approval.RequestedState ? "checked" : "unchecked")} by admin approval"
-                    });
+                    };
+                    
+                    _logger.LogInformation("Sending AdminSquareUpdate: SquareId={SquareId}, IsChecked={IsChecked}, Message={Message}", 
+                        adminUpdateData.SquareId, adminUpdateData.IsChecked, adminUpdateData.Message);
+                    
+                    await Clients.Others.SendAsync("AdminSquareUpdate", adminUpdateData);
 
-                    _logger.LogInformation("Approved {Count} related requests for square {SquareId} and sent global update", 
+                    // Also send to the caller (the admin who approved) so they see the update too
+                    await Clients.Caller.SendAsync("AdminSquareUpdate", adminUpdateData);
+
+                    _logger.LogInformation("Approved {Count} related requests for square {SquareId} and sent admin update", 
                         relatedApprovals.Count, approval.SquareId);
                 }
                 else

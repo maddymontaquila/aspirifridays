@@ -43,6 +43,11 @@ namespace BingoBoard.Admin.Services
         Task<bool> UpdateSquareGloballyAsync(string squareId, bool isChecked);
 
         /// <summary>
+        /// Update a square for admin only without broadcasting to other clients
+        /// </summary>
+        Task<bool> UpdateSquareForAdminAsync(string adminClientId, string squareId, bool isChecked);
+
+        /// <summary>
         /// Get globally checked squares
         /// </summary>
         Task<List<string>> GetGloballyCheckedSquaresAsync();

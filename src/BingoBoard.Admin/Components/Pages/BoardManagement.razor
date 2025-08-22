@@ -321,9 +321,35 @@
             {
                 try
                 {
-                    string squareId = data.SquareId?.ToString() ?? "";
-                    bool isChecked = data.IsChecked ?? false;
-                    string message = data.Message?.ToString() ?? "";
+                    // Handle both JsonElement and dynamic object cases
+                    string squareId = "";
+                    bool isChecked = false;
+                    string message = "";
+                    
+                    // Debug logging
+                    Console.WriteLine($"[Admin] GlobalSquareUpdate received. Data type: {data?.GetType()?.Name}");
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        Console.WriteLine($"[Admin] GlobalSquareUpdate JsonElement properties: {string.Join(", ", jsonElement.EnumerateObject().Select(p => p.Name))}");
+                    }
+                    
+                    // Check if data is JsonElement (common with SignalR)
+                    if (data is System.Text.Json.JsonElement jsonElement2)
+                    {
+                        if (jsonElement2.TryGetProperty("squareId", out var squareIdProp))
+                            squareId = squareIdProp.GetString() ?? "";
+                        if (jsonElement2.TryGetProperty("isChecked", out var isCheckedProp))
+                            isChecked = isCheckedProp.GetBoolean();
+                        if (jsonElement2.TryGetProperty("message", out var messageProp))
+                            message = messageProp.GetString() ?? "";
+                    }
+                    else
+                    {
+                        // Fallback to dynamic access
+                        squareId = data.SquareId?.ToString() ?? "";
+                        isChecked = data.IsChecked ?? false;
+                        message = data.Message?.ToString() ?? "";
+                    }
                     
                     Console.WriteLine($"[Admin] GlobalSquareUpdate received: SquareId={squareId}, IsChecked={isChecked}");
                     AddToLog($"Global square update: {message}");
@@ -377,7 +403,21 @@
             {
                 try
                 {
-                    string squareLabel = data.SquareLabel?.ToString() ?? "";
+                    // Handle both JsonElement and dynamic object cases
+                    string squareLabel = "";
+                    
+                    // Check if data is JsonElement (common with SignalR)
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        if (jsonElement.TryGetProperty("squareLabel", out var squareLabelProp))
+                            squareLabel = squareLabelProp.GetString() ?? "";
+                    }
+                    else
+                    {
+                        // Fallback to dynamic access
+                        squareLabel = data.SquareLabel?.ToString() ?? "";
+                    }
+                    
                     AddToLog($"New approval request for square: {squareLabel}");
                     
                     // Immediately refresh pending approvals to get real-time update
@@ -400,19 +440,46 @@
             {
                 try
                 {
-                    string status = data.Status?.ToString() ?? "";
-                    string squareLabel = data.SquareLabel?.ToString() ?? "";
-                    string approvalId = data.ApprovalId?.ToString() ?? "";
-                    int relatedRequestsCount = data.RelatedRequestsCount ?? 1;
+                    // Handle both JsonElement and dynamic object cases
+                    string status = "";
+                    string squareLabel = "";
+                    string approvalId = "";
+                    string squareId = "";
+                    bool requestedState = false;
+                    int relatedRequestsCount = 1;
+                    
+                    // Check if data is JsonElement (common with SignalR)
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        if (jsonElement.TryGetProperty("status", out var statusProp))
+                            status = statusProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("squareLabel", out var squareLabelProp))
+                            squareLabel = squareLabelProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("approvalId", out var approvalIdProp))
+                            approvalId = approvalIdProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("squareId", out var squareIdProp))
+                            squareId = squareIdProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("requestedState", out var requestedStateProp))
+                            requestedState = requestedStateProp.GetBoolean();
+                        if (jsonElement.TryGetProperty("relatedRequestsCount", out var relatedRequestsCountProp))
+                            relatedRequestsCount = relatedRequestsCountProp.GetInt32();
+                    }
+                    else
+                    {
+                        // Fallback to dynamic access
+                        status = data.Status?.ToString() ?? "";
+                        squareLabel = data.SquareLabel?.ToString() ?? "";
+                        approvalId = data.ApprovalId?.ToString() ?? "";
+                        squareId = data.SquareId?.ToString() ?? "";
+                        requestedState = data.RequestedState ?? false;
+                        relatedRequestsCount = data.RelatedRequestsCount ?? 1;
+                    }
                     
                     var countMessage = relatedRequestsCount > 1 ? $" ({relatedRequestsCount} related requests)" : "";
                     AddToLog($"Approval request {status.ToLower()}: {squareLabel}{countMessage}");
                     
                     // Remove all processed approvals from local list immediately
                     // Since multiple related requests were processed, remove all for the same square/state
-                    var squareId = data.SquareId?.ToString() ?? "";
-                    var requestedState = data.RequestedState ?? false;
-                    
                     var removedCount = pendingApprovals.RemoveAll(a => 
                         a.SquareId == squareId && a.RequestedState == requestedState);
                     
@@ -437,6 +504,79 @@
                 catch (Exception ex)
                 {
                     AddToLog($"Error processing approval status update: {ex.Message}");
+                }
+            });
+        });
+
+        // Admin-only square update handler (for approved squares)
+        hubConnection.On<dynamic>("AdminSquareUpdate", (data) =>
+        {
+            _ = InvokeAsync(() =>
+            {
+                try
+                {
+                    // Handle both JsonElement and dynamic object cases
+                    string squareId = "";
+                    bool isChecked = false;
+                    string message = "";
+                    
+                    // Debug logging
+                    Console.WriteLine($"[Admin] AdminSquareUpdate received. Data type: {data?.GetType()?.Name}");
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        Console.WriteLine($"[Admin] AdminSquareUpdate JsonElement properties: {string.Join(", ", jsonElement.EnumerateObject().Select(p => p.Name))}");
+                    }
+                    
+                    // Check if data is JsonElement (common with SignalR)
+                    if (data is System.Text.Json.JsonElement jsonElement2)
+                    {
+                        if (jsonElement2.TryGetProperty("squareId", out var squareIdProp))
+                            squareId = squareIdProp.GetString() ?? "";
+                        if (jsonElement2.TryGetProperty("isChecked", out var isCheckedProp))
+                            isChecked = isCheckedProp.GetBoolean();
+                        if (jsonElement2.TryGetProperty("message", out var messageProp))
+                            message = messageProp.GetString() ?? "";
+                    }
+                    else
+                    {
+                        // Fallback to dynamic access
+                        squareId = data.SquareId?.ToString() ?? "";
+                        isChecked = data.IsChecked ?? false;
+                        message = data.Message?.ToString() ?? "";
+                    }
+                    
+                    Console.WriteLine($"[Admin] AdminSquareUpdate received: SquareId={squareId}, IsChecked={isChecked}");
+                    AddToLog($"Admin square update: {message}");
+                    
+                    // Update local state
+                    if (isChecked && !globallyCheckedSquares.Contains(squareId))
+                    {
+                        globallyCheckedSquares.Add(squareId);
+                    }
+                    else if (!isChecked && globallyCheckedSquares.Contains(squareId))
+                    {
+                        globallyCheckedSquares.Remove(squareId);
+                    }
+                    
+                    // Update the actual square object's IsChecked property
+                    var square = allSquares.FirstOrDefault(s => s.Id == squareId);
+                    if (square != null)
+                    {
+                        Console.WriteLine($"[Admin] Updating square {squareId} from {square.IsChecked} to {isChecked}");
+                        square.IsChecked = isChecked;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[Admin] WARNING: Square {squareId} not found in allSquares list");
+                    }
+                    
+                    UpdateDisplaySquares();
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Admin] Error processing admin square update: {ex.Message}");
+                    AddToLog($"Error processing admin square update: {ex.Message}");
                 }
             });
         });
@@ -571,6 +711,30 @@
         {
             isProcessingApproval = true;
             StateHasChanged();
+
+            // Get the approval details before processing so we can update local state
+            var approval = pendingApprovals.FirstOrDefault(a => a.Id == approvalId);
+            if (approval != null)
+            {
+                // Update the local square state immediately
+                var square = allSquares.FirstOrDefault(s => s.Id == approval.SquareId);
+                if (square != null)
+                {
+                    square.IsChecked = approval.RequestedState;
+                    
+                    // Also update the global state tracking
+                    if (approval.RequestedState && !globallyCheckedSquares.Contains(approval.SquareId))
+                    {
+                        globallyCheckedSquares.Add(approval.SquareId);
+                    }
+                    else if (!approval.RequestedState && globallyCheckedSquares.Contains(approval.SquareId))
+                    {
+                        globallyCheckedSquares.Remove(approval.SquareId);
+                    }
+                    
+                    AddToLog($"Locally updated square '{square.Label}' to {(approval.RequestedState ? "checked" : "unchecked")}");
+                }
+            }
 
             await hubConnection.SendAsync("ApproveSquareRequest", approvalId);
             AddToLog($"Approved request: {approvalId}");
