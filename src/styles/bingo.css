@@ -47,19 +47,6 @@
   color: var(--color-text-primary);
 }
 
-.bingo-square.pending {
-  background: linear-gradient(135deg, #ffc107, #ff8f00);
-  border-color: #ffc107;
-  color: var(--color-text-primary);
-  animation: pending-pulse 2s infinite;
-  cursor: not-allowed;
-}
-
-.bingo-square.pending:hover {
-  transform: none;
-  box-shadow: 0 0 20px rgba(255, 193, 7, 0.5);
-}
-
 .bingo-square.free-space {
   background: var(--gradient-secondary);
   border-color: var(--color-secondary);
@@ -169,21 +156,6 @@
 @keyframes bingo-glow {
   0% { box-shadow: 0 0 20px rgba(255, 20, 147, 0.5); }
   100% { box-shadow: 0 0 30px rgba(255, 20, 147, 0.8); }
-}
-
-@keyframes pending-pulse {
-  0% { 
-    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
-    opacity: 1;
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
-    opacity: 0.8;
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
-    opacity: 1;
-  }
 }
 
 @keyframes celebration-pulse {
