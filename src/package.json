@@ -13,8 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "vue": "^3.5.16",
-    "@microsoft/signalr": "^8.0.7"
+    "vue": "^3.5.16"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
