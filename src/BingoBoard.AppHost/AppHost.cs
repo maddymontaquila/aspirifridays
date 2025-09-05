@@ -1,17 +1,24 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-builder.AddDockerComposeEnvironment("env")
-    .WithDashboard(db => db.WithHostPort(8083));
+// builder.AddDockerComposeEnvironment("env")
+//     .WithDashboard(db => db.WithHostPort(8083));
+
+builder.AddAzureContainerAppEnvironment("env");
 
 var password = builder.AddParameter("admin-password", secret: true);
 
+#pragma warning disable
 var cache = builder.AddRedis("cache");
 
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
     .WithEnvironment("Authentication__AdminPassword", password)
     .WaitFor(cache)
-    .WithExternalHttpEndpoints();
+    .WithExternalHttpEndpoints()
+    .PublishAsAzureContainerApp((infra, app) =>
+    {
+        app.Configuration.Ingress.AllowInsecure = true;
+    });
 
 var bingo = builder.AddViteApp("bingoboard", "../bingo-board")
     .WithNpmPackageInstallation()

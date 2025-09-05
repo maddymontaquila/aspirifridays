@@ -1,16 +1,30 @@
 server {
+    listen 80;
 
-    access_log  /var/log/nginx/server.access.log  main;
+    error_log /var/log/nginx/error.log info;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    access_log /var/log/nginx/server.access.log main;
 
     location / {
-        root /usr/share/nginx/html;
         try_files $uri $uri/ /index.html;
     }
 
     location /bingohub {
-        proxy_pass ${services__boardadmin__http__0};
+        proxy_pass ${services__boardadmin__http__0}/bingohub;
         proxy_http_version 1.1;
-        proxy_ssl_server_name on;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    
+
+        # basic proxy headers
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 }
