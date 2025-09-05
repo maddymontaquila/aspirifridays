@@ -7,6 +7,7 @@
 @inject IBingoService BingoService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject AddressResolver AddressResolver
 @implements IAsyncDisposable
 
 <PageTitle>Board Management - Bingo Admin</PageTitle>
@@ -341,7 +342,7 @@
     {
         // Initialize SignalR connection
         hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/bingohub"))
+            .WithUrl(AddressResolver.Address)
             .Build();
 
         // Set up event handlers

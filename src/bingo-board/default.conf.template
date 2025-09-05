@@ -8,7 +8,7 @@ server {
     }
 
     location /bingohub {
-        proxy_pass ${services__boardadmin__https__0};
+        proxy_pass ${services__boardadmin__http__0};
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -1,5 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+builder.AddDockerComposeEnvironment("env")
+    .WithDashboard(db => db.WithHostPort(8083));
+
 var password = builder.AddParameter("admin-password", secret: true);
 
 var cache = builder.AddRedis("cache");
@@ -7,13 +10,18 @@ var cache = builder.AddRedis("cache");
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
     .WithEnvironment("Authentication__AdminPassword", password)
-    .WaitFor(cache);
+    .WaitFor(cache)
+    .WithExternalHttpEndpoints();
 
 var bingo = builder.AddViteApp("bingoboard", "../bingo-board")
     .WithNpmPackageInstallation()
     .WithReference(admin)
     .WaitFor(admin)
-    .PublishAsDockerFile();
+    .WithExternalHttpEndpoints()
+    .PublishAsDockerFile(c => 
+    {
+        c.WithEndpoint("http", e => e.TargetPort = 80);
+    });
 
 // during debugging, make sure the container build also works
 if (builder.ExecutionContext.IsRunMode)
