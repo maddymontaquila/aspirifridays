@@ -1,3 +1,5 @@
+using Azure.Provisioning.AppContainers;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 // builder.AddDockerComposeEnvironment("env")
@@ -18,6 +20,7 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .PublishAsAzureContainerApp((infra, app) =>
     {
         app.Configuration.Ingress.AllowInsecure = true;
+        app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
     });
 
 var bingo = builder.AddViteApp("bingoboard", "../bingo-board")
