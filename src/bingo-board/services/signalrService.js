@@ -17,21 +17,20 @@ export class SignalRService {
     try {
       // Get the admin service URL from environment variables
       // Try different possible environment variable formats
-      let adminUrl = import.meta.env.VITE_ADMIN_URL
+      // let adminUrl = import.meta.env.VITE_ADMIN_URL
 
       // For debugging, temporarily hardcode the admin URL
-      if (!adminUrl) {
-        adminUrl = 'https://localhost:7207' // fallback for development
-        console.warn('No VITE_ADMIN_URL found, using fallback:', adminUrl)
-      }
+      // if (!adminUrl) {
+      //   adminUrl = 'https://localhost:7207' // fallback for development
+      //   console.warn('No VITE_ADMIN_URL found, using fallback:', adminUrl)
+      // }
 
       console.log('Environment variables available:')
-      console.log('VITE_ADMIN_URL:', import.meta.env.VITE_ADMIN_URL)
+      // console.log('VITE_ADMIN_URL:', import.meta.env.VITE_ADMIN_URL)
       console.log('All env vars:', import.meta.env)
-      console.log('Using admin URL:', adminUrl)
 
       this.connection = new HubConnectionBuilder()
-        .withUrl(`${adminUrl}/bingohub`)
+        .withUrl('bingohub')
         .withAutomaticReconnect()
         .configureLogging(LogLevel.Information)
         .build()
