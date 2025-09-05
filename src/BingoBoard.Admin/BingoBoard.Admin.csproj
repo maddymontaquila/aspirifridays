@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>  </PropertyGroup>  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.6" />
-    <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="9.5.0-preview.1.25421.11" />
+    <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="9.5.0-preview.1.25455.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BingoBoard.ServiceDefaults\BingoBoard.ServiceDefaults.csproj" />

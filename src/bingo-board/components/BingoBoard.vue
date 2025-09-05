@@ -68,6 +68,20 @@
         </div>
         
         <AspireCallout />
+        
+        <!-- Live Mode Indicator -->
+        <div class="mode-indicator" :class="{ 'live-mode': isLiveMode, 'free-play-mode': !isLiveMode }">
+          <div class="mode-header">
+            <i :class="isLiveMode ? 'bi bi-broadcast-pin' : 'bi bi-play-circle'"></i>
+            <span class="mode-title">{{ isLiveMode ? 'Live Stream Active' : 'Free Play Mode' }}</span>
+          </div>
+          <p class="mode-description">
+            {{ isLiveMode 
+              ? 'Squares require admin approval before being marked'
+              : 'No live stream in progress - mark squares freely!' 
+            }}
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -105,7 +119,9 @@ export default {
       isLoading: false,
       error: null,
       pendingSquares: new Set(), // Track squares that are pending approval
-      persistentClientId: null
+      persistentClientId: null,
+      isLiveMode: true, // Default to live mode, will be updated from server
+      liveModeMessage: ''
     }
   },
   computed: {
@@ -146,6 +162,9 @@ export default {
         signalRService.addEventListener('approvalRequestSubmitted', this.onApprovalRequestSubmitted)
         signalRService.addEventListener('approvalRequestApproved', this.onApprovalRequestApproved)
         signalRService.addEventListener('approvalRequestDenied', this.onApprovalRequestDenied)
+        
+        // Live mode event listener
+        signalRService.addEventListener('liveModeChanged', this.onLiveModeChanged)
 
         // Connect to SignalR hub
         await signalRService.connect()
@@ -206,7 +225,7 @@ export default {
     },
 
     /**
-     * Toggle a square and request approval from admin
+     * Toggle a square and request approval from admin or update directly in free play mode
      */
     async toggleSquare(index) {
       const square = this.currentBoard[index]
@@ -223,13 +242,25 @@ export default {
       try {
         const newMarkedState = !square.marked
         
-        // Add to pending squares immediately for UI feedback
-        this.pendingSquares.add(square.id)
-        
-        // Request approval from admin instead of direct update
-        await signalRService.requestSquareApproval(square.id, newMarkedState)
-        
-        console.log(`Requested approval for square ${square.id}: ${newMarkedState ? 'check' : 'uncheck'}`)
+        if (!this.isLiveMode) {
+          // Free play mode - update immediately and locally
+          square.marked = newMarkedState
+          this.checkForBingo()
+          this.saveState()
+          
+          console.log(`Free play mode: Updated square ${square.id} to ${newMarkedState}`)
+          
+          // Show a brief confirmation message
+          this.showGlobalUpdateNotification(`${square.label} ${newMarkedState ? 'checked' : 'unchecked'} (Free Play Mode)`)
+        } else {
+          // Live mode - add to pending and request approval
+          this.pendingSquares.add(square.id)
+          
+          // Request approval from admin
+          await signalRService.requestSquareApproval(square.id, newMarkedState)
+          
+          console.log(`Requested approval for square ${square.id}: ${newMarkedState ? 'check' : 'uncheck'}`)
+        }
         
       } catch (error) {
         console.error('Failed to request square approval:', error)
@@ -397,13 +428,18 @@ export default {
     },
 
     onSquareUpdateConfirmed(confirmation) {
-      // Our square update was confirmed by the server
+      // Our square update was confirmed by the server (used in free play mode)
       const squareIndex = this.currentBoard.findIndex(square => square.id === confirmation.squareId)
       if (squareIndex !== -1) {
         // Ensure our local state matches the server
         this.currentBoard[squareIndex].marked = confirmation.isChecked
         this.checkForBingo()
         this.saveState()
+        
+        // In free play mode, show a subtle confirmation
+        if (!this.isLiveMode && confirmation.message) {
+          console.log('Free play confirmation:', confirmation.message)
+        }
       }
     },
 
@@ -464,6 +500,10 @@ export default {
       console.log('Approval request submitted:', response)
       // Square is now pending - UI should show pending state
       // The pending state is already handled by adding to pendingSquares in toggleSquare
+      // Only relevant in live mode
+      if (this.isLiveMode) {
+        console.log('Approval request submitted in live mode')
+      }
     },
 
     onApprovalRequestApproved(response) {
@@ -497,6 +537,24 @@ export default {
         message += ` Reason: ${response.reason}`
       }
       this.showGlobalUpdateNotification(message)
+    },
+
+    // Live mode event handler
+    onLiveModeChanged(update) {
+      console.log('Live mode changed:', update)
+      
+      this.isLiveMode = update.isLiveMode
+      this.liveModeMessage = update.message
+      
+      // Clear pending squares when switching to free play mode
+      if (!this.isLiveMode) {
+        this.pendingSquares.clear()
+      }
+      
+      // Show the mode change notification
+      this.showGlobalUpdateNotification(update.message)
+      
+      console.log(`Mode changed to: ${this.isLiveMode ? 'Live Stream' : 'Free Play'}`)
     }
   },
   
@@ -519,6 +577,9 @@ export default {
     signalRService.removeEventListener('approvalRequestSubmitted', this.onApprovalRequestSubmitted)
     signalRService.removeEventListener('approvalRequestApproved', this.onApprovalRequestApproved)
     signalRService.removeEventListener('approvalRequestDenied', this.onApprovalRequestDenied)
+    
+    // Clean up live mode event listener
+    signalRService.removeEventListener('liveModeChanged', this.onLiveModeChanged)
     
     // Don't disconnect SignalR as other components might be using it
   }
@@ -627,6 +688,74 @@ button:disabled {
   to {
     transform: translateX(100%);
     opacity: 0;
+  }
+}
+
+/* Mode indicator styles */
+.mode-indicator {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.mode-indicator.live-mode {
+  border-color: #dc3545;
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.mode-indicator.free-play-mode {
+  border-color: #198754;
+  background: rgba(25, 135, 84, 0.1);
+}
+
+.mode-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.mode-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.live-mode .mode-title {
+  color: #dc3545;
+}
+
+.free-play-mode .mode-title {
+  color: #198754;
+}
+
+.mode-description {
+  font-size: 0.8rem;
+  color: var(--text-color);
+  opacity: 0.8;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.live-mode .bi-broadcast-pin {
+  color: #dc3545;
+  animation: pulse 2s infinite;
+}
+
+.free-play-mode .bi-play-circle {
+  color: #198754;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
   }
 }
 </style>

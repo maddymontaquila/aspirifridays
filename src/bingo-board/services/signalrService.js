@@ -117,6 +117,11 @@ export class SignalRService {
         this.notifyListeners('globalSquareUpdate', update)
       })
 
+      this.connection.on('LiveModeChanged', (update) => {
+        console.log('Live mode changed:', update)
+        this.notifyListeners('liveModeChanged', update)
+      })
+
       this.connection.on('Error', (error) => {
         console.error('SignalR error:', error)
         this.notifyListeners('error', error)
