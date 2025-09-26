@@ -1,0 +1,1 @@
+For anything related to Aspire or .NET ask Microsoft Docs MCP and if that doesn't work ask Context7.

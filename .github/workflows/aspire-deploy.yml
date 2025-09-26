@@ -1,0 +1,55 @@
+name: Aspire Deploy CI/CD
+
+on:
+  push:
+    branches:
+      - live
+
+permissions:
+    id-token: write # This is required for requesting the JWT
+    contents: read  # This is required for actions/checkout
+
+jobs:
+  aspire_deploy:
+    runs-on: ubuntu-latest
+    name: Deploy with Aspire
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          include-prerelease: true
+      
+      - name: Install Aspire CLI (Native AOT)
+        run: curl -sSL https://aspire.dev/install.sh | bash
+      
+      - name: Add Aspire CLI to PATH
+        run: echo "$HOME/.aspire/bin" >> $GITHUB_PATH
+
+      - name: LS
+        run: ls -a
+      
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Deploy with Aspire
+        run: aspire deploy --project ./src/apphost.cs --debug
+        env:
+          Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
+          Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          Parameters__admin-password: ${{ secrets.ADMIN_PASSWORD }}
+          Parameters__redis-password: ${{ secrets.CACHE_PASSWORD }}
+
