@@ -19,7 +19,8 @@ builder.AddAzureContainerAppEnvironment("env");
 
 var password = builder.AddParameter("admin-password", secret: true);
 
-var cache = builder.AddRedis("cache");
+var cache = builder.AddRedis("cache")
+    .WithPassword(builder.AddParameter("redis-password", secret: true));
 
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
