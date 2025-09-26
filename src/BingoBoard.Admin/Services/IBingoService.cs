@@ -86,5 +86,20 @@ namespace BingoBoard.Admin.Services
         /// Update the connection ID for an existing client's bingo set
         /// </summary>
         Task<bool> UpdateClientConnectionAsync(string oldClientId, string newClientId);
+
+        /// <summary>
+        /// Set the live mode state (true for live stream, false for free play)
+        /// </summary>
+        Task SetLiveModeAsync(bool isLiveMode);
+
+        /// <summary>
+        /// Get the current live mode state
+        /// </summary>
+        Task<bool> GetLiveModeAsync();
+
+        /// <summary>
+        /// Handle square approval request - bypasses approval in free play mode
+        /// </summary>
+        Task<(bool needsApproval, string? approvalId)> HandleSquareRequestAsync(string clientId, string squareId, bool requestedState);
     }
 }

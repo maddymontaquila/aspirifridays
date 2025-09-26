@@ -7,6 +7,7 @@
 @inject IBingoService BingoService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject AddressResolver AddressResolver
 @implements IAsyncDisposable
 
 <PageTitle>Board Management - Bingo Admin</PageTitle>
@@ -21,8 +22,53 @@
         </div>
     </div>
 
+    <!-- Live Mode Toggle Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card @(isLiveMode ? "border-success" : "border-info")">
+                <div class="card-header @(isLiveMode ? "bg-success text-white" : "bg-info text-white")">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas @(isLiveMode ? "fa-broadcast-tower" : "fa-gamepad")"></i> 
+                            Stream Mode: @(isLiveMode ? "LIVE" : "FREE PLAY")
+                        </h5>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   id="liveModeSwitch" 
+                                   @bind="isLiveMode" 
+                                   @bind:after="OnLiveModeToggle"
+                                   style="font-size: 1.25rem;">
+                            <label class="form-check-label text-white ms-2" for="liveModeSwitch">
+                                @(isLiveMode ? "Live Stream Active" : "Free Play Mode")
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (isLiveMode)
+                    {
+                        <div class="alert alert-success mb-0">
+                            <i class="fas fa-video"></i>
+                            <strong>Live Stream Mode Active:</strong> 
+                            Clients must request approval to mark squares. Use the approval workflow below to manage requests.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-play"></i>
+                            <strong>Free Play Mode Active:</strong> 
+                            Clients can freely mark squares without approval. Perfect for when there's no live stream happening.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Pending Approval Requests Section -->
-    @if (pendingApprovals.Any())
+    @if (isLiveMode && pendingApprovals.Any())
     {
         <div class="row mb-4">
             <div class="col-12">
@@ -284,6 +330,7 @@
     private PendingApproval? currentApprovalForDenial = null;
     private string denyReason = "";
     private Timer? refreshTimer;
+    private bool isLiveMode = true; // Default to live mode for safety
 
     public class ActivityLogEntry
     {
@@ -295,7 +342,7 @@
     {
         // Initialize SignalR connection
         hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/bingohub"))
+            .WithUrl(AddressResolver.Address)
             .Build();
 
         // Set up event handlers
@@ -346,9 +393,9 @@
                     else
                     {
                         // Fallback to dynamic access
-                        squareId = data.SquareId?.ToString() ?? "";
-                        isChecked = data.IsChecked ?? false;
-                        message = data.Message?.ToString() ?? "";
+                        squareId = data?.SquareId?.ToString() ?? "";
+                        isChecked = data?.IsChecked ?? false;
+                        message = data?.Message?.ToString() ?? "";
                     }
                     
                     Console.WriteLine($"[Admin] GlobalSquareUpdate received: SquareId={squareId}, IsChecked={isChecked}");
@@ -622,10 +669,41 @@
             });
         });
 
+        hubConnection.On<dynamic>("LiveModeReceived", (data) =>
+        {
+            _ = InvokeAsync(() =>
+            {
+                try
+                {
+                    bool newIsLiveMode = false;
+                    
+                    // Handle both JsonElement and dynamic object cases
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        if (jsonElement.TryGetProperty("isLiveMode", out var isLiveModeProp))
+                            newIsLiveMode = isLiveModeProp.GetBoolean();
+                    }
+                    else
+                    {
+                        newIsLiveMode = data.IsLiveMode ?? true;
+                    }
+                    
+                    isLiveMode = newIsLiveMode;
+                    StateHasChanged();
+                    AddToLog($"Live mode loaded: {(isLiveMode ? "Live Stream" : "Free Play")}");
+                }
+                catch (Exception ex)
+                {
+                    AddToLog($"Error processing live mode: {ex.Message}");
+                }
+            });
+        });
+
         await hubConnection.StartAsync();
         await LoadAllSquares();
         await LoadGloballyCheckedSquares();
         await LoadPendingApprovals();
+        await LoadLiveMode();
 
         // Set up periodic refresh timer for pending approvals (every 10 seconds as fallback)
         refreshTimer = new Timer(async _ =>
@@ -729,6 +807,20 @@
         {
             AddToLog($"Error loading pending approvals: {ex.Message}");
             Console.WriteLine($"[Admin] Error loading pending approvals: {ex.Message}");
+        }
+    }
+
+    private async Task LoadLiveMode()
+    {
+        if (hubConnection == null) return;
+        
+        try
+        {
+            await hubConnection.SendAsync("GetLiveMode");
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error loading live mode: {ex.Message}");
         }
     }
 
@@ -850,6 +942,31 @@
         currentApprovalForDenial = null;
         denyReason = "";
         StateHasChanged();
+    }
+
+    private async Task OnLiveModeToggle()
+    {
+        try
+        {
+            if (hubConnection != null)
+            {
+                // Broadcast the live mode change to all clients
+                await hubConnection.SendAsync("BroadcastLiveModeChange", isLiveMode);
+                
+                string mode = isLiveMode ? "Live Stream" : "Free Play";
+                AddToLog($"Switched to {mode} mode");
+                
+                // If switching to free play mode, clear any pending approvals since they're no longer needed
+                if (!isLiveMode && pendingApprovals.Any())
+                {
+                    AddToLog("Free play mode activated - approval requests are no longer required");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error changing live mode: {ex.Message}");
+        }
     }
 
     private void ShowCheckedOnly()

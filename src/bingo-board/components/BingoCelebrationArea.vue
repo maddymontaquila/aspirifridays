@@ -1,6 +1,6 @@
 <template>
-  <div class="bingo-celebration-area">
-    <div v-if="hasBingo" class="bingo-celebration" role="alert" aria-live="polite">
+  <div v-if="hasBingo" class="bingo-celebration-area">
+    <div class="bingo-celebration" role="alert" aria-live="polite">
       🎉 BINGO! 🎉
     </div>
   </div>

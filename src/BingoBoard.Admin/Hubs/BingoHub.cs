@@ -205,71 +205,94 @@ namespace BingoBoard.Admin.Hubs
                 _logger.LogInformation("Client {ConnectionId} (persistent: {PersistentClientId}) requesting approval for square {SquareId} to {Status}", 
                     connectionId, persistentClientId, squareId, requestedState);
 
-                // First check if the square is already in the requested state globally
-                var globallyCheckedSquares = await _bingoService.GetGloballyCheckedSquaresAsync();
-                bool isCurrentlyChecked = globallyCheckedSquares.Contains(squareId);
-
-                // If the square is already in the requested state, auto-approve silently
-                if (isCurrentlyChecked == requestedState)
-                {
-                    _logger.LogInformation("Auto-approving request for square {SquareId} as it's already in the requested state {RequestedState}", 
-                        squareId, requestedState);
-
-                    // Get the square details for notification
-                    var allSquares = await _bingoService.GetAllSquaresAsync();
-                    var square = allSquares.FirstOrDefault(s => s.Id == squareId);
-                    var squareLabel = square?.Label ?? squareId;
-
-                    // Notify the client that their request has been auto-approved
-                    await Clients.Caller.SendAsync("ApprovalRequestApproved", new 
-                    { 
-                        ApprovalId = "auto-approved",
-                        SquareId = squareId,
-                        SquareLabel = squareLabel,
-                        NewState = requestedState,
-                        Message = $"Your request to {(requestedState ? "check" : "uncheck")} '{squareLabel}' was automatically approved (already in requested state)!",
-                        Timestamp = DateTime.UtcNow
-                    });
-
-                    _logger.LogInformation("Auto-approved request for client {ConnectionId} for square {SquareId}", 
-                        connectionId, squareId);
-                    return;
-                }
-
-                // Square is not in the requested state, create a normal approval request
-                var approvalId = await _bingoService.RequestSquareApprovalAsync(persistentClientId, squareId, requestedState);
+                // Handle the request based on current mode (live vs free play)
+                var (needsApproval, approvalId) = await _bingoService.HandleSquareRequestAsync(persistentClientId, squareId, requestedState);
                 
                 // Update client activity
                 await _clientService.UpdateClientActivityAsync(connectionId);
 
                 // Get the square details for notification
-                var allSquares2 = await _bingoService.GetAllSquaresAsync();
-                var square2 = allSquares2.FirstOrDefault(s => s.Id == squareId);
-                var squareLabel2 = square2?.Label ?? squareId;
+                var allSquares = await _bingoService.GetAllSquaresAsync();
+                var square = allSquares.FirstOrDefault(s => s.Id == squareId);
+                var squareLabel = square?.Label ?? squareId;
 
-                // Confirm request submission to the client
-                await Clients.Caller.SendAsync("ApprovalRequestSubmitted", new 
-                { 
-                    ApprovalId = approvalId,
-                    SquareId = squareId,
-                    RequestedState = requestedState,
-                    Message = $"Request to {(requestedState ? "check" : "uncheck")} '{squareLabel2}' has been submitted for admin approval",
-                    Timestamp = DateTime.UtcNow
-                });
+                if (!needsApproval)
+                {
+                    // Free play mode - square was updated directly
+                    await Clients.Caller.SendAsync("SquareUpdateConfirmed", new 
+                    { 
+                        SquareId = squareId,
+                        IsChecked = requestedState,
+                        Message = $"'{squareLabel}' has been {(requestedState ? "checked" : "unchecked")} (Free Play Mode)",
+                        Timestamp = DateTime.UtcNow
+                    });
 
-                // Notify admin clients about the new approval request
-                await Clients.Others.SendAsync("NewApprovalRequest", new 
-                { 
-                    ApprovalId = approvalId,
-                    ClientId = connectionId,
-                    SquareId = squareId,
-                    SquareLabel = squareLabel2,
-                    RequestedState = requestedState,
-                    Timestamp = DateTime.UtcNow
-                });
+                    // Broadcast to all clients that this square was updated
+                    await Clients.All.SendAsync("GlobalSquareUpdate", new 
+                    { 
+                        SquareId = squareId, 
+                        IsChecked = requestedState,
+                        Timestamp = DateTime.UtcNow,
+                        Message = $"'{squareLabel}' has been {(requestedState ? "checked" : "unchecked")} (Free Play Mode)"
+                    });
 
-                _logger.LogInformation("Created approval request {ApprovalId} for client {ConnectionId}", 
-                    approvalId, connectionId);
+                    _logger.LogInformation("Free play mode: Updated square {SquareId} for client {ConnectionId}", 
+                        squareId, connectionId);
+                }
+                else
+                {
+                    // Live mode - approval workflow as before
+                    // First check if the square is already in the requested state globally
+                    var globallyCheckedSquares = await _bingoService.GetGloballyCheckedSquaresAsync();
+                    bool isCurrentlyChecked = globallyCheckedSquares.Contains(squareId);
+
+                    // If the square is already in the requested state, auto-approve silently
+                    if (isCurrentlyChecked == requestedState)
+                    {
+                        _logger.LogInformation("Auto-approving request for square {SquareId} as it's already in the requested state {RequestedState}", 
+                            squareId, requestedState);
+
+                        // Notify the client that their request has been auto-approved
+                        await Clients.Caller.SendAsync("ApprovalRequestApproved", new 
+                        { 
+                            ApprovalId = "auto-approved",
+                            SquareId = squareId,
+                            SquareLabel = squareLabel,
+                            NewState = requestedState,
+                            Message = $"Your request to {(requestedState ? "check" : "uncheck")} '{squareLabel}' was automatically approved (already in requested state)!",
+                            Timestamp = DateTime.UtcNow
+                        });
+
+                        _logger.LogInformation("Auto-approved request for client {ConnectionId} for square {SquareId}", 
+                            connectionId, squareId);
+                        return;
+                    }
+
+                    // Square is not in the requested state, use the returned approval ID
+                    // Confirm request submission to the client
+                    await Clients.Caller.SendAsync("ApprovalRequestSubmitted", new 
+                    { 
+                        ApprovalId = approvalId,
+                        SquareId = squareId,
+                        RequestedState = requestedState,
+                        Message = $"Request to {(requestedState ? "check" : "uncheck")} '{squareLabel}' has been submitted for admin approval",
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    // Notify admin clients about the new approval request
+                    await Clients.Others.SendAsync("NewApprovalRequest", new 
+                    { 
+                        ApprovalId = approvalId,
+                        ClientId = connectionId,
+                        SquareId = squareId,
+                        SquareLabel = squareLabel,
+                        RequestedState = requestedState,
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Created approval request {ApprovalId} for client {ConnectionId}", 
+                        approvalId, connectionId);
+                }
             }
             catch (Exception ex)
             {
@@ -684,6 +707,57 @@ namespace BingoBoard.Admin.Hubs
             {
                 _logger.LogError(ex, "Error retrieving pending approvals");
                 await Clients.Caller.SendAsync("Error", "Failed to retrieve pending approvals");
+            }
+        }
+
+        /// <summary>
+        /// Admin broadcasts live mode change to all clients
+        /// </summary>
+        public async Task BroadcastLiveModeChange(bool isLiveMode)
+        {
+            try
+            {
+                var adminId = Context.ConnectionId;
+                _logger.LogInformation("Admin {AdminId} changing live mode to {IsLiveMode}", adminId, isLiveMode);
+
+                // Store the live mode state
+                await _bingoService.SetLiveModeAsync(isLiveMode);
+
+                // Broadcast the change to all clients
+                await Clients.All.SendAsync("LiveModeChanged", new 
+                { 
+                    IsLiveMode = isLiveMode,
+                    Message = isLiveMode ? "Live stream mode activated - approval required for square marking" : "Free play mode activated - mark squares freely!",
+                    Timestamp = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("Broadcasted live mode change to all clients: {IsLiveMode}", isLiveMode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting live mode change");
+                await Clients.Caller.SendAsync("Error", "Failed to change live mode");
+            }
+        }
+
+        /// <summary>
+        /// Get current live mode state
+        /// </summary>
+        public async Task GetLiveMode()
+        {
+            try
+            {
+                var isLiveMode = await _bingoService.GetLiveModeAsync();
+                await Clients.Caller.SendAsync("LiveModeReceived", new 
+                { 
+                    IsLiveMode = isLiveMode,
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving live mode");
+                await Clients.Caller.SendAsync("Error", "Failed to retrieve live mode");
             }
         }
     }

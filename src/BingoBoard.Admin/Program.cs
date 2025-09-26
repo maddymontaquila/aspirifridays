@@ -10,8 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 // Get the frontend URL from service discovery
-var frontendURL = Environment.GetEnvironmentVariable("services__bingoboard__http__0") ?? 
-                  Environment.GetEnvironmentVariable("services__bingoboard__https__0") ?? 
+var frontendURL = Environment.GetEnvironmentVariable("services__bingoboard__http__0") ??
+                  Environment.GetEnvironmentVariable("services__bingoboard__https__0") ??
                   "http+https://bingoboard"; // Fallback to hardcoded value if service discovery not available
 
 // Add authentication services (required even for custom auth)
@@ -37,20 +37,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 // Add SignalR
-builder.Services.AddSignalR();
-
-// Add CORS for development (allows frontend to connect to SignalR)
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy
-            .WithOrigins(frontendURL)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials(); // Required for SignalR
-    });
-});
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(builder.Configuration.GetConnectionString("cache")!);
 
 // Add Redis with Aspire client for distributed caching and raw Redis access
 builder.AddRedisDistributedCache(connectionName: "cache");
@@ -62,6 +50,8 @@ builder.Services.AddScoped<IPasswordAuthService, PasswordAuthService>();
 
 // Register background services
 builder.Services.AddHostedService<ApprovalCleanupService>();
+
+builder.Services.AddSingleton<AddressResolver>();
 
 // Add logging
 builder.Services.AddLogging();
@@ -76,7 +66,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.MapStaticAssets();
@@ -109,21 +99,21 @@ app.MapPost("/auth/login", async (HttpContext context, IPasswordAuthService auth
     // Read password from form data instead of query parameter
     var form = await context.Request.ReadFormAsync();
     var password = form["password"].ToString();
-    
+
     logger.LogInformation("Login attempt with password: {Password}", password);
-    
+
     if (authService.ValidatePassword(password))
     {
         logger.LogInformation("Password valid, signing in user");
         await authService.SignInAsync(context);
-        
+
         // Check if user was actually signed in
         var authResult = await context.AuthenticateAsync("Cookies");
         logger.LogInformation("After sign in - Authentication succeeded: {Success}", authResult.Succeeded);
-        
+
         return Results.Redirect("/"); // Redirect to simple test endpoint
     }
-    
+
     logger.LogInformation("Password invalid, redirecting to login with error");
     return Results.Redirect("/login?error=invalid");
 });

@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json.schemastore.org/aspire-8.0.json",
+  "resources": {
+    "env": {
+      "type": "azure.bicep.v0",
+      "path": "env.module.bicep",
+      "params": {
+        "userPrincipalId": ""
+      }
+    },
+    "admin-password": {
+      "type": "parameter.v0",
+      "value": "{admin-password.inputs.value}",
+      "inputs": {
+        "value": {
+          "type": "string",
+          "secret": true
+        }
+      }
+    },
+    "cache": {
+      "type": "container.v1",
+      "connectionString": "{cache.bindings.tcp.host}:{cache.bindings.tcp.port},password={cache-password.value}",
+      "image": "docker.io/library/redis:8.2",
+      "deployment": {
+        "type": "azure.bicep.v0",
+        "path": "cache.module.bicep",
+        "params": {
+          "env_outputs_azure_container_apps_environment_default_domain": "{env.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN}",
+          "env_outputs_azure_container_apps_environment_id": "{env.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_ID}",
+          "cache_password_value": "{cache-password.value}"
+        }
+      },
+      "entrypoint": "/bin/sh",
+      "args": [
+        "-c",
+        "redis-server --requirepass $REDIS_PASSWORD"
+      ],
+      "env": {
+        "REDIS_PASSWORD": "{cache-password.value}"
+      },
+      "bindings": {
+        "tcp": {
+          "scheme": "tcp",
+          "protocol": "tcp",
+          "transport": "tcp",
+          "targetPort": 6379
+        }
+      }
+    },
+    "boardadmin": {
+      "type": "project.v1",
+      "path": "../src/BingoBoard.Admin/BingoBoard.Admin.csproj",
+      "deployment": {
+        "type": "azure.bicep.v0",
+        "path": "boardadmin.module.bicep",
+        "params": {
+          "env_outputs_azure_container_apps_environment_default_domain": "{env.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN}",
+          "env_outputs_azure_container_apps_environment_id": "{env.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_ID}",
+          "env_outputs_azure_container_registry_endpoint": "{env.outputs.AZURE_CONTAINER_REGISTRY_ENDPOINT}",
+          "env_outputs_azure_container_registry_managed_identity_id": "{env.outputs.AZURE_CONTAINER_REGISTRY_MANAGED_IDENTITY_ID}",
+          "boardadmin_containerimage": "{boardadmin.containerImage}",
+          "boardadmin_containerport": "{boardadmin.containerPort}",
+          "cache_password_value": "{cache-password.value}",
+          "admin_password_value": "{admin-password.value}"
+        }
+      },
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{boardadmin.bindings.http.targetPort}",
+        "ConnectionStrings__cache": "{cache.connectionString}",
+        "Authentication__AdminPassword": "{admin-password.value}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "external": true
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http",
+          "external": true
+        }
+      }
+    },
+    "bingoboard": {
+      "type": "container.v1",
+      "build": {
+        "context": "../src/bingo-board",
+        "dockerfile": "../src/bingo-board/Dockerfile"
+      },
+      "deployment": {
+        "type": "azure.bicep.v0",
+        "path": "bingoboard.module.bicep",
+        "params": {
+          "env_outputs_azure_container_apps_environment_default_domain": "{env.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN}",
+          "env_outputs_azure_container_apps_environment_id": "{env.outputs.AZURE_CONTAINER_APPS_ENVIRONMENT_ID}",
+          "env_outputs_azure_container_registry_endpoint": "{env.outputs.AZURE_CONTAINER_REGISTRY_ENDPOINT}",
+          "env_outputs_azure_container_registry_managed_identity_id": "{env.outputs.AZURE_CONTAINER_REGISTRY_MANAGED_IDENTITY_ID}",
+          "bingoboard_containerimage": "{bingoboard.containerImage}"
+        }
+      },
+      "entrypoint": "dotnet",
+      "args": [
+        "/app/yarp.dll"
+      ],
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Production",
+        "YARP_ENABLE_STATIC_FILES": "true",
+        "REVERSEPROXY__ROUTES__route0__MATCH__PATH": "/bingohub/{**catch-all}",
+        "REVERSEPROXY__ROUTES__route0__CLUSTERID": "cluster_boardadmin",
+        "REVERSEPROXY__CLUSTERS__cluster_boardadmin__DESTINATIONS__destination1__ADDRESS": "https\u002Bhttp://boardadmin",
+        "services__boardadmin__http__0": "{boardadmin.bindings.http.url}",
+        "services__boardadmin__https__0": "{boardadmin.bindings.https.url}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 5000
+        }
+      }
+    },
+    "cache-password": {
+      "type": "parameter.v0",
+      "value": "{cache-password.inputs.value}",
+      "inputs": {
+        "value": {
+          "type": "string",
+          "secret": true,
+          "default": {
+            "generate": {
+              "minLength": 22,
+              "special": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

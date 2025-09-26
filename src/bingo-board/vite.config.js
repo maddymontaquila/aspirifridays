@@ -3,9 +3,15 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
-  define: {
-    // Expose Aspire service environment variables to the client
-    'admin_http': JSON.stringify(process.env.services__board_admin__http__0),
-    'admin_https': JSON.stringify(process.env.services__board_admin__https__0),
+  server: {
+    proxy: {
+      // Proxy SignalR hub to the admin service
+      '/bingohub': {
+        target: process.env.services__boardadmin__https__0 || process.env.services__boardadmin__http__0,
+        changeOrigin: true,
+        secure: false,
+        ws: true // Enable WebSocket proxying for SignalR
+      }
+    }
   }
 })

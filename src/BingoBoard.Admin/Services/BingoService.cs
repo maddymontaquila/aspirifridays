@@ -626,6 +626,84 @@ namespace BingoBoard.Admin.Services
             }
         }
 
+        public async Task SetLiveModeAsync(bool isLiveMode)
+        {
+            try
+            {
+                var cacheKey = "bingo_live_mode";
+                await _cache.SetStringAsync(cacheKey, isLiveMode.ToString());
+                _logger.LogInformation("Live mode set to: {IsLiveMode}", isLiveMode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting live mode to {IsLiveMode}", isLiveMode);
+                throw;
+            }
+        }
+
+        public async Task<bool> GetLiveModeAsync()
+        {
+            try
+            {
+                var cacheKey = "bingo_live_mode";
+                var liveModeStr = await _cache.GetStringAsync(cacheKey);
+                
+                // Default to true (live mode) if not set for safety
+                if (string.IsNullOrEmpty(liveModeStr))
+                {
+                    await SetLiveModeAsync(true);
+                    return true;
+                }
+
+                return bool.TryParse(liveModeStr, out bool isLiveMode) ? isLiveMode : true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting live mode");
+                return true; // Default to live mode for safety
+            }
+        }
+
+        public async Task<(bool needsApproval, string? approvalId)> HandleSquareRequestAsync(string clientId, string squareId, bool requestedState)
+        {
+            try
+            {
+                var isLiveMode = await GetLiveModeAsync();
+                
+                if (!isLiveMode)
+                {
+                    // Free play mode - update square directly without approval
+                    var success = await UpdateSquareStatusAsync(clientId, squareId, requestedState);
+                    if (success)
+                    {
+                        // Also update the global state for tracking
+                        var globalKey = $"global_square_{squareId}";
+                        await _cache.SetStringAsync(globalKey, requestedState.ToString());
+                        
+                        _logger.LogInformation("Free play mode: Updated square {SquareId} to {RequestedState} for client {ClientId}", 
+                            squareId, requestedState, clientId);
+                        
+                        return (false, null); // No approval needed
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Failed to update square in free play mode");
+                    }
+                }
+                else
+                {
+                    // Live mode - require approval
+                    var approvalId = await RequestSquareApprovalAsync(clientId, squareId, requestedState);
+                    return (true, approvalId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling square request for client {ClientId}", clientId);
+                throw;
+            }
+        }
+
         /// <summary>
         /// Generate the complete list of available bingo squares
         /// </summary>
