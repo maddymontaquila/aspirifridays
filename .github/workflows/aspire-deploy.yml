@@ -37,8 +37,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
       - name: Deploy with Aspire
-        run: aspire deploy
-        working-directory: ./src
+        run: aspire deploy --debug
         env:
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
