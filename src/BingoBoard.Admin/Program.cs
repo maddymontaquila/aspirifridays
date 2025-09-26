@@ -37,20 +37,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 // Add SignalR
-builder.Services.AddSignalR();
-
-// Add CORS for development (allows frontend to connect to SignalR)
-// builder.Services.AddCors(options =>
-// {
-//     options.AddDefaultPolicy(policy =>
-//     {
-//         policy
-//             .WithOrigins(frontendURL)
-//             .AllowAnyHeader()
-//             .AllowAnyMethod()
-//             .AllowCredentials(); // Required for SignalR
-//     });
-// });
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(builder.Configuration.GetConnectionString("cache")!);
 
 // Add Redis with Aspire client for distributed caching and raw Redis access
 builder.AddRedisDistributedCache(connectionName: "cache");

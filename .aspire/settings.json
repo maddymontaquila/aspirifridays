@@ -1,3 +1,7 @@
 {
-  "appHostPath": "../src/BingoBoard.AppHost/BingoBoard.AppHost.csproj"
+  "appHostPath": "../src/apphost.cs",
+  "features": {
+    "singlefileAppHostEnabled": "true",
+    "minimumSdkCheckEnabled": "false"
+  }
 }
