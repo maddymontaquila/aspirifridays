@@ -1,22 +1,11 @@
-FROM node:22 as build
-
+# Stage 1: Build React app
+FROM node:22 AS builder
 WORKDIR /app
-
-COPY package.json package.json
-COPY package-lock.json package-lock.json
-
-RUN npm install
-
 COPY . .
-
+RUN npm install
 RUN npm run build
 
-FROM nginx:alpine
-
-COPY --from=build /app/default.conf.template /etc/nginx/templates/default.conf.template
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Expose the default nginx port
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+# Stage 2: Copy static files to YARP container  
+FROM mcr.microsoft.com/dotnet/nightly/yarp:2.3.0-preview.4 AS yarp
+WORKDIR /app
+COPY --from=builder /app/dist ./wwwroot

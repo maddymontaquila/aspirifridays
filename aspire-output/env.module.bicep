@@ -30,22 +30,49 @@ resource env_acr_env_mi_AcrPull 'Microsoft.Authorization/roleAssignments@2022-04
   scope: env_acr
 }
 
-resource env_asplan 'Microsoft.Web/serverfarms@2024-11-01' = {
-  name: take('envasplan-${uniqueString(resourceGroup().id)}', 60)
+resource env_law 'Microsoft.OperationalInsights/workspaces@2025-02-01' = {
+  name: take('envlaw-${uniqueString(resourceGroup().id)}', 63)
   location: location
   properties: {
-    reserved: true
+    sku: {
+      name: 'PerGB2018'
+    }
   }
-  kind: 'Linux'
-  sku: {
-    name: 'P0V3'
-    tier: 'Premium'
-  }
+  tags: tags
 }
 
-output name string = env_asplan.name
+resource env 'Microsoft.App/managedEnvironments@2025-01-01' = {
+  name: take('env${uniqueString(resourceGroup().id)}', 24)
+  location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: env_law.properties.customerId
+        sharedKey: env_law.listKeys().primarySharedKey
+      }
+    }
+    workloadProfiles: [
+      {
+        name: 'consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
+  }
+  tags: tags
+}
 
-output planId string = env_asplan.id
+resource aspireDashboard 'Microsoft.App/managedEnvironments/dotNetComponents@2024-10-02-preview' = {
+  name: 'aspire-dashboard'
+  properties: {
+    componentType: 'AspireDashboard'
+  }
+  parent: env
+}
+
+output AZURE_LOG_ANALYTICS_WORKSPACE_NAME string = env_law.name
+
+output AZURE_LOG_ANALYTICS_WORKSPACE_ID string = env_law.id
 
 output AZURE_CONTAINER_REGISTRY_NAME string = env_acr.name
 
@@ -53,4 +80,8 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = env_acr.properties.loginServer
 
 output AZURE_CONTAINER_REGISTRY_MANAGED_IDENTITY_ID string = env_mi.id
 
-output AZURE_CONTAINER_REGISTRY_MANAGED_IDENTITY_CLIENT_ID string = env_mi.properties.clientId
+output AZURE_CONTAINER_APPS_ENVIRONMENT_NAME string = env.name
+
+output AZURE_CONTAINER_APPS_ENVIRONMENT_ID string = env.id
+
+output AZURE_CONTAINER_APPS_ENVIRONMENT_DEFAULT_DOMAIN string = env.properties.defaultDomain

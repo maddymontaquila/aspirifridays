@@ -1,3 +1,4 @@
+using Aspire.Hosting.Yarp;
 using Azure.Provisioning.AppContainers;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -28,19 +29,52 @@ var bingo = builder.AddViteApp("bingoboard", "../bingo-board")
     .WithReference(admin)
     .WaitFor(admin)
     .WithExternalHttpEndpoints()
-    .PublishAsDockerFile(c => 
+    .PublishAsYarp(y =>
     {
-        c.WithEndpoint("http", e => e.TargetPort = 80);
+        y.WithStaticFiles();
+        y.WithExternalHttpEndpoints();
+        y.WithConfiguration(c => c.AddRoute("/bingohub/{**catch-all}", admin));
     });
 
 // during debugging, make sure the container build also works
 if (builder.ExecutionContext.IsRunMode)
 {
-    builder.AddDockerfile("containerFE", "../bingo-board/")
-    .WithReference(admin)
-    .WaitFor(admin)
-    .WithHttpEndpoint(targetPort: 80)
-    .WithExplicitStart();
+    builder.AddYarp("containerFE")
+        .WithConfiguration(c =>
+        {
+            c.AddRoute("/bingohub/{**catch-all}", admin.GetEndpoint("http"));
+        })
+        .WithDockerfile("../bingo-board")
+        .WithStaticFiles()
+        .WaitFor(admin)
+        .WithIconName("SerialPort")
+        .WithExplicitStart();
 }
 
 builder.Build().Run();
+
+static class NodeAppResourceExtensions
+{
+    /// <summary>
+    /// Configures the NodeAppResource to publish as a YARP resource.
+    /// </summary>
+    /// <param name="builder">The resource builder for YARP.</param>
+    /// <returns>The <see cref="IResourceBuilder{T}"/>.</returns>
+    public static IResourceBuilder<NodeAppResource> PublishAsYarp(this IResourceBuilder<NodeAppResource> builder, Action<IResourceBuilder<YarpResource>>? configure = null)
+    {
+        if (!builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            return builder;
+        }
+        var nodeResource = builder.Resource;
+
+        builder.ApplicationBuilder.Resources.Remove(nodeResource);
+
+        var yarpBuilder = builder.ApplicationBuilder.AddYarp(nodeResource.Name)
+            .WithDockerfile(nodeResource.WorkingDirectory);
+
+        configure?.Invoke(yarpBuilder);
+
+        return builder;
+    }
+}
