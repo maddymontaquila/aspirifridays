@@ -1,7 +1,7 @@
 name: Aspire Deploy CI/CD
 
 on:
-  pull_request:
+  push:
     branches:
       - live
 
