@@ -43,6 +43,6 @@ jobs:
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          admin-password: ${{ secrets.ADMIN_PASSWORD }}
-          cache-password: ${{ secrets.CACHE_PASSWORD }}
+          Parameters__admin-password: ${{ secrets.ADMIN_PASSWORD }}
+          Parameters__cache-password: ${{ secrets.CACHE_PASSWORD }}
 
