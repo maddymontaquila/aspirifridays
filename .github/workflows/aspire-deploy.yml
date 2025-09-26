@@ -28,6 +28,9 @@ jobs:
       
       - name: Add Aspire CLI to PATH
         run: echo "$HOME/.aspire/bin" >> $GITHUB_PATH
+
+      - name: LS
+        run: ls -a
       
       - name: Azure Login
         uses: azure/login@v2
