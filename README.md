@@ -1,3 +1,2 @@
 # aspirifridays
-
 AspiriFridays bingo
