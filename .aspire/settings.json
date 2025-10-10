@@ -1,0 +1,7 @@
+{
+  "appHostPath": "../src/apphost.cs",
+  "features": {
+    "singlefileAppHostEnabled": "true",
+    "minimumSdkCheckEnabled": "false"
+  }
+}
