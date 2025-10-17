@@ -1,4 +1,5 @@
-﻿#:sdk Aspire.AppHost.Sdk@13.0.0-preview.1.25517.3
+﻿#pragma warning disable
+#:sdk Aspire.AppHost.Sdk@13.0.0-preview.1.25517.3
 #:package Aspire.Hosting.Azure.AppContainers@13.0.0-preview.1.25517.3
 #:package Aspire.Hosting.Azure.Redis@13.0.0-preview.1.25517.3
 #:package Aspire.Hosting.Docker@13.0.0-preview.1.25517.3
@@ -9,6 +10,7 @@
 #:project ./BingoBoard.Admin
 #:property UserSecretsId=aspire-samples-bingoboard
 
+using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -23,7 +25,7 @@ var cache = builder.AddRedis("cache")
     {
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 1;
-    });;
+    }); ;
 
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
@@ -35,6 +37,10 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 1;
         app.Template.Scale.MinReplicas = 1;
+        app.ConfigureCustomDomain(
+            builder.AddParameter("admin-domain", "admin.aspireify.live"),
+            builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301")
+        );
     });
 
 if (builder.ExecutionContext.IsRunMode)
@@ -62,6 +68,16 @@ builder.AddYarp("bingoboard")
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 5;
         app.Template.Scale.MinReplicas = 1;
+        app.ConfigureCustomDomain(
+            builder.AddParameter("yarp-domain", "aspireify.live"),
+            builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247")
+        );
+        app.Template.Scale.Rules.Add(new (
+            new ContainerAppScaleRule
+            {
+                Name = "http-scaler",
+                Http = new() { Metadata = new() { ["concurrentRequests"] = "100" } }
+            }));
     })
     .WithExplicitStart();
 
