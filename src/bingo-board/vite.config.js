@@ -1,5 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { readFileSync } from 'fs'
+
+// Read Vite version from package.json
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
+const viteVersion = packageJson.devDependencies.vite.replace('^', '')
 
 export default defineConfig({
   plugins: [vue()],
@@ -7,7 +12,8 @@ export default defineConfig({
     // Make version info available at build time
     'import.meta.env.VITE_COMMIT_SHA': JSON.stringify(process.env.VITE_COMMIT_SHA || process.env.COMMIT_SHA || 'unknown'),
     'import.meta.env.VITE_DOTNET_VERSION': JSON.stringify(process.env.VITE_DOTNET_VERSION || process.env.DOTNET_VERSION || '9.0'),
-    'import.meta.env.VITE_ASPIRE_VERSION': JSON.stringify(process.env.VITE_ASPIRE_VERSION || process.env.ASPIRE_VERSION || '13.0.0-preview.1')
+    'import.meta.env.VITE_ASPIRE_VERSION': JSON.stringify(process.env.VITE_ASPIRE_VERSION || process.env.ASPIRE_VERSION || '13.0.0-preview.1'),
+    'import.meta.env.VITE_VERSION': JSON.stringify(viteVersion)
   },
   server: {
     proxy: {

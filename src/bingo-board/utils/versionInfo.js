@@ -1,6 +1,6 @@
 /**
  * Version information utility
- * Gets commit SHA, .NET version, Aspire version, and build time
+ * Gets commit SHA, .NET version, Aspire version, Vite version, and build time
  */
 
 export function getVersionInfo() {
@@ -8,6 +8,7 @@ export function getVersionInfo() {
     commitHash: getCommitHash(),
     dotnetVersion: getDotNetVersion(),
     aspireVersion: getAspireVersion(),
+    viteVersion: getViteVersion(),
     renderedAt: getRenderedTime()
   }
 }
@@ -28,6 +29,11 @@ function getAspireVersion() {
   return import.meta.env.VITE_ASPIRE_VERSION || '13.0.0-preview.1'
 }
 
+function getViteVersion() {
+  // Vite version is set during build from package.json
+  return import.meta.env.VITE_VERSION || '6.3.5'
+}
+
 function getRenderedTime() {
   // Format current time in GMT format similar to the inspiration image
   const now = new Date()
@@ -36,5 +42,5 @@ function getRenderedTime() {
 
 export function getVersionString() {
   const info = getVersionInfo()
-  return `Version Hash: #${info.commitHash} | Running on .NET ${info.dotnetVersion} | with .NET Aspire ${info.aspireVersion} | Rendered at: ${info.renderedAt}`
+  return `Version Hash: #${info.commitHash} | Running on .NET ${info.dotnetVersion} | with .NET Aspire ${info.aspireVersion} | Vite ${info.viteVersion} | Rendered at: ${info.renderedAt}`
 }
