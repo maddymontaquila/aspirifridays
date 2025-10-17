@@ -15,6 +15,12 @@ using Azure.Provisioning.AppContainers;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+
+var adminDomain = builder.AddParameter("admin-domain", "admin.aspireify.live");
+var adminCertName = builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301");
+var yarpDomain = builder.AddParameter("yarp-domain", "aspireify.live");
+var yarpCertName = builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247");
+
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
 builder.AddAzureContainerAppEnvironment("env");
@@ -37,10 +43,7 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 1;
         app.Template.Scale.MinReplicas = 1;
-        app.ConfigureCustomDomain(
-            builder.AddParameter("admin-domain", "admin.aspireify.live"),
-            builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301")
-        );
+        app.ConfigureCustomDomain(adminDomain, adminCertName);
     });
 
 if (builder.ExecutionContext.IsRunMode)
@@ -68,10 +71,7 @@ builder.AddYarp("bingoboard")
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 5;
         app.Template.Scale.MinReplicas = 1;
-        app.ConfigureCustomDomain(
-            builder.AddParameter("yarp-domain", "aspireify.live"),
-            builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247")
-        );
+        app.ConfigureCustomDomain(yarpDomain, yarpCertName);
         app.Template.Scale.Rules.Add(new (
             new ContainerAppScaleRule
             {
