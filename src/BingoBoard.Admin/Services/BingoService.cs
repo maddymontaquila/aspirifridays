@@ -704,6 +704,63 @@ namespace BingoBoard.Admin.Services
             }
         }
 
+        public async Task<int> ApproveAllPendingRequestsAsync(string adminId)
+        {
+            try
+            {
+                var pendingApprovals = await GetPendingApprovalsAsync();
+                
+                if (!pendingApprovals.Any())
+                {
+                    _logger.LogInformation("No pending approvals to process");
+                    return 0;
+                }
+
+                // Group approvals by square and requested state to process them efficiently
+                var approvalGroups = pendingApprovals
+                    .GroupBy(a => new { a.SquareId, a.RequestedState })
+                    .ToList();
+
+                int totalProcessed = 0;
+
+                foreach (var group in approvalGroups)
+                {
+                    var firstApproval = group.First();
+                    
+                    // Process all approvals in this group
+                    foreach (var approval in group)
+                    {
+                        approval.Status = ApprovalStatus.Approved;
+                        approval.ProcessedByAdmin = adminId;
+                        approval.ProcessedAt = DateTime.UtcNow;
+
+                        // Save updated approval
+                        var cacheKey = $"pending_approval_{approval.Id}";
+                        var serializedApproval = JsonSerializer.Serialize(approval);
+                        await _cache.SetStringAsync(cacheKey, serializedApproval);
+
+                        // Update the client's board state in the server cache
+                        await UpdateSquareStatusAsync(approval.ClientId, firstApproval.SquareId, firstApproval.RequestedState);
+
+                        totalProcessed++;
+                    }
+
+                    // Update the square globally for this group
+                    await UpdateSquareGloballyAsync(firstApproval.SquareId, firstApproval.RequestedState);
+                }
+
+                _logger.LogInformation("Approved {Count} pending requests across {GroupCount} square groups by admin {AdminId}", 
+                    totalProcessed, approvalGroups.Count, adminId);
+
+                return totalProcessed;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving all pending requests");
+                return 0;
+            }
+        }
+
         /// <summary>
         /// Generate the complete list of available bingo squares
         /// </summary>

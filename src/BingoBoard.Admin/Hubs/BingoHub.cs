@@ -760,5 +760,103 @@ namespace BingoBoard.Admin.Hubs
                 await Clients.Caller.SendAsync("Error", "Failed to retrieve live mode");
             }
         }
+
+        /// <summary>
+        /// Admin approves all pending square requests at once
+        /// </summary>
+        public async Task ApproveAllPendingSquares()
+        {
+            try
+            {
+                var adminId = Context.ConnectionId;
+                _logger.LogInformation("Admin {AdminId} approving all pending requests", adminId);
+
+                // Get all pending approvals before processing
+                var pendingApprovals = await _bingoService.GetPendingApprovalsAsync();
+                
+                if (!pendingApprovals.Any())
+                {
+                    await Clients.Caller.SendAsync("ApprovalRequestProcessed", new 
+                    { 
+                        Status = "NoRequests",
+                        Message = "No pending approval requests to process",
+                        Timestamp = DateTime.UtcNow
+                    });
+                    return;
+                }
+
+                // Group by square and state for notification purposes
+                var approvalGroups = pendingApprovals
+                    .GroupBy(a => new { a.SquareId, a.RequestedState })
+                    .ToList();
+
+                // Approve all pending requests
+                var totalProcessed = await _bingoService.ApproveAllPendingRequestsAsync(adminId);
+
+                if (totalProcessed > 0)
+                {
+                    // Get all squares for labels
+                    var allSquares = await _bingoService.GetAllSquaresAsync();
+
+                    // Notify all clients who had approval requests
+                    foreach (var group in approvalGroups)
+                    {
+                        var square = allSquares.FirstOrDefault(s => s.Id == group.Key.SquareId);
+                        var squareLabel = square?.Label ?? group.Key.SquareId;
+
+                        // Notify each client in this group
+                        foreach (var approval in group)
+                        {
+                            var connectionId = await _clientService.GetConnectionIdFromPersistentClientAsync(approval.ClientId);
+                            
+                            if (!string.IsNullOrEmpty(connectionId))
+                            {
+                                await Clients.Client(connectionId).SendAsync("ApprovalRequestApproved", new 
+                                { 
+                                    ApprovalId = approval.Id,
+                                    SquareId = approval.SquareId,
+                                    SquareLabel = squareLabel,
+                                    NewState = approval.RequestedState,
+                                    Message = $"Your request to {(approval.RequestedState ? "check" : "uncheck")} '{squareLabel}' has been approved!",
+                                    Timestamp = DateTime.UtcNow
+                                });
+                            }
+                        }
+
+                        // Send global square update for this group
+                        await Clients.All.SendAsync("GlobalSquareUpdate", new 
+                        { 
+                            SquareId = group.Key.SquareId, 
+                            IsChecked = group.Key.RequestedState,
+                            Timestamp = DateTime.UtcNow,
+                            Message = $"'{squareLabel}' has been {(group.Key.RequestedState ? "checked" : "unchecked")} by admin approval"
+                        });
+                    }
+
+                    // Notify admin clients about the bulk approval
+                    await Clients.All.SendAsync("AllApprovalsProcessed", new 
+                    { 
+                        Status = "Approved",
+                        ProcessedBy = adminId,
+                        TotalCount = totalProcessed,
+                        GroupCount = approvalGroups.Count,
+                        Message = $"Approved {totalProcessed} requests across {approvalGroups.Count} squares",
+                        Timestamp = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Admin {AdminId} approved {Count} pending requests across {GroupCount} squares", 
+                        adminId, totalProcessed, approvalGroups.Count);
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("Error", "Failed to approve pending requests");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving all pending requests");
+                await Clients.Caller.SendAsync("Error", "Failed to approve all pending requests");
+            }
+        }
     }
 }

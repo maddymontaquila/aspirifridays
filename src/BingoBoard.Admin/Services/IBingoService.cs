@@ -101,5 +101,10 @@ namespace BingoBoard.Admin.Services
         /// Handle square approval request - bypasses approval in free play mode
         /// </summary>
         Task<(bool needsApproval, string? approvalId)> HandleSquareRequestAsync(string clientId, string squareId, bool requestedState);
+
+        /// <summary>
+        /// Admin approves all pending approval requests
+        /// </summary>
+        Task<int> ApproveAllPendingRequestsAsync(string adminId);
     }
 }
