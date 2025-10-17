@@ -1,91 +1,84 @@
-#:sdk Aspire.AppHost.Sdk@9.5.0
-#:package Aspire.Hosting.Azure.AppContainers@9.5.0
-#:package Aspire.Hosting.Azure.AppService@9.5.0-preview.1.25474.7
-#:package Aspire.Hosting.Azure.Redis@9.5.0
-#:package Aspire.Hosting.Docker@9.5.0-preview.1.25474.7
-#:package Aspire.Hosting.Redis@9.5.0
-#:package Aspire.Hosting.NodeJS@9.5.0
-#:package Aspire.Hosting.Yarp@9.5.0-preview.1.25474.7
+﻿#pragma warning disable
+#:sdk Aspire.AppHost.Sdk@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Azure.AppContainers@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Azure.Redis@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Docker@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Redis@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.NodeJs@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Yarp@13.0.0-preview.1.25517.3
 #:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.7.0
 #:project ./BingoBoard.Admin
-#pragma warning disable
+#:property UserSecretsId=aspire-samples-bingoboard
 
-using Aspire.Hosting.Yarp;
+using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
+
 builder.AddAzureContainerAppEnvironment("env");
 
 var password = builder.AddParameter("admin-password", secret: true);
-
 var cache = builder.AddRedis("cache")
-    .WithPassword(builder.AddParameter("redis-password", secret: true));
+    .PublishAsAzureContainerApp((infra, app) =>
+    {
+        app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
+        app.Template.Scale.MaxReplicas = 1;
+    }); ;
 
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
-    .WithEnvironment("Authentication__AdminPassword", password)
     .WaitFor(cache)
+    .WithEnvironment("Authentication__AdminPassword", password)
     .WithExternalHttpEndpoints()
-    .WithReplicas(builder.ExecutionContext.IsRunMode ? 1 : 2)
     .PublishAsAzureContainerApp((infra, app) =>
     {
-        app.Configuration.Ingress.AllowInsecure = true;
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
+        app.Template.Scale.MaxReplicas = 1;
+        app.Template.Scale.MinReplicas = 1;
+        app.ConfigureCustomDomain(
+            builder.AddParameter("admin-domain", "admin.aspireify.live"),
+            builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301")
+        );
     });
 
-var bingo = builder.AddViteApp("bingoboard", "./bingo-board")
-    .WithNpmPackageInstallation()
-    .WithReference(admin)
-    .WaitFor(admin)
-    .WithExternalHttpEndpoints()
-    .WithIconName("SerialPort")
-    .PublishAsYarp(y =>
-    {
-        y.WithStaticFiles();
-        y.WithExternalHttpEndpoints();
-        y.WithConfiguration(c => c.AddRoute("/bingohub/{**catch-all}", admin));
-    });
-
-// during debugging, make sure the container build also works
 if (builder.ExecutionContext.IsRunMode)
 {
-    builder.AddYarp("containerFE")
-        .WithConfiguration(c =>
-        {
-            c.AddRoute("/bingohub/{**catch-all}", admin.GetEndpoint("http"));
-        })
-        .WithDockerfile("./bingo-board")
-        .WithStaticFiles()
+    builder.AddViteApp("bingoboard-dev", "./bingo-board")
+        .WithNpmPackageInstallation()
+        .WithReference(admin)
         .WaitFor(admin)
-        .WithIconName("SerialPort")
-        .WithExplicitStart();
+        .WithIconName("SerialPort");
 }
+
+var adminEndpoint = admin.GetEndpoint(builder.ExecutionContext.IsRunMode ? "http" : "https");
+builder.AddYarp("bingoboard")
+    .WithConfiguration(c =>
+    {
+        c.AddRoute("/bingohub/{**catch-all}", adminEndpoint);
+    })
+    .WithDockerfile("./bingo-board")
+    .WithStaticFiles()
+    .WaitFor(admin)
+    .WithIconName("SerialPort")
+    .WithExternalHttpEndpoints()
+    .PublishAsAzureContainerApp((infra, app) =>
+    {
+        app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
+        app.Template.Scale.MaxReplicas = 5;
+        app.Template.Scale.MinReplicas = 1;
+        app.ConfigureCustomDomain(
+            builder.AddParameter("yarp-domain", "aspireify.live"),
+            builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247")
+        );
+        app.Template.Scale.Rules.Add(new (
+            new ContainerAppScaleRule
+            {
+                Name = "http-scaler",
+                Http = new() { Metadata = new() { ["concurrentRequests"] = "100" } }
+            }));
+    })
+    .WithExplicitStart();
 
 builder.Build().Run();
-
-static class NodeAppResourceExtensions
-{
-    /// <summary>
-    /// Configures the NodeAppResource to publish as a YARP resource.
-    /// </summary>
-    /// <param name="builder">The resource builder for YARP.</param>
-    /// <returns>The <see cref="IResourceBuilder{T}"/>.</returns>
-    public static IResourceBuilder<NodeAppResource> PublishAsYarp(this IResourceBuilder<NodeAppResource> builder, Action<IResourceBuilder<YarpResource>>? configure = null)
-    {
-        if (!builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
-        {
-            return builder;
-        }
-        var nodeResource = builder.Resource;
-
-        builder.ApplicationBuilder.Resources.Remove(nodeResource);
-
-        var yarpBuilder = builder.ApplicationBuilder.AddYarp(nodeResource.Name)
-            .WithDockerfile(nodeResource.WorkingDirectory);
-
-        configure?.Invoke(yarpBuilder);
-
-        return builder;
-    }
-}

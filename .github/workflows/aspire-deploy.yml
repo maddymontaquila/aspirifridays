@@ -26,10 +26,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-          include-prerelease: true
       
       - name: Install Aspire CLI (Native AOT)
-        run: curl -sSL https://aspire.dev/install.sh | bash
+        run: curl -sSL https://aspire.dev/install.sh | bash -s -- -q dev
       
       - name: Add Aspire CLI to PATH
         run: echo "$HOME/.aspire/bin" >> $GITHUB_PATH
@@ -45,11 +44,9 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
       - name: Deploy with Aspire
-        run: aspire deploy --project ./src/apphost.cs --debug
+        run: aspire deploy --project ./src/apphost.cs --environment Production
         env:
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          Parameters__admin-password: ${{ secrets.ADMIN_PASSWORD }}
-          Parameters__redis-password: ${{ secrets.CACHE_PASSWORD }}
-
+          Parameters__admin_password: ${{ secrets.ADMIN_PASSWORD }}
