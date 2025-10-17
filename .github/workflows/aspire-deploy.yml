@@ -50,3 +50,4 @@ jobs:
           Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
           Parameters__admin_password: ${{ secrets.ADMIN_PASSWORD }}
+          Parameters__cache_password: ${{ secrets.CACHE_PASSWORD }}
