@@ -18,17 +18,23 @@ Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 builder.AddAzureContainerAppEnvironment("env");
 
 var password = builder.AddParameter("admin-password", secret: true);
-var cache = builder.AddRedis("cache");
+var cache = builder.AddRedis("cache")
+    .PublishAsAzureContainerApp((infra, app) =>
+    {
+        app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
+        app.Template.Scale.MaxReplicas = 1;
+    });;
 
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
     .WaitFor(cache)
     .WithEnvironment("Authentication__AdminPassword", password)
     .WithExternalHttpEndpoints()
-    .WithReplicas(builder.ExecutionContext.IsRunMode ? 1 : 2)
     .PublishAsAzureContainerApp((infra, app) =>
     {
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
+        app.Template.Scale.MaxReplicas = 1;
+        app.Template.Scale.MinReplicas = 1;
     });
 
 if (builder.ExecutionContext.IsRunMode)
@@ -51,6 +57,12 @@ builder.AddYarp("bingoboard")
     .WaitFor(admin)
     .WithIconName("SerialPort")
     .WithExternalHttpEndpoints()
+    .PublishAsAzureContainerApp((infra, app) =>
+    {
+        app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
+        app.Template.Scale.MaxReplicas = 5;
+        app.Template.Scale.MinReplicas = 1;
+    })
     .WithExplicitStart();
 
 builder.Build().Run();
