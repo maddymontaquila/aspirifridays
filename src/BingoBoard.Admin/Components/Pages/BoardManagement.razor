@@ -79,9 +79,16 @@
                                 <i class="fas fa-clock"></i> Pending Approval Requests
                                 <span class="badge bg-dark ms-2">@pendingApprovals.Count</span>
                             </h5>
-                            <button @onclick="LoadPendingApprovals" class="btn btn-outline-dark btn-sm">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
+                            <div class="btn-group">
+                                <button @onclick="ApproveAllRequests" 
+                                        class="btn btn-success btn-sm me-2"
+                                        disabled="@isProcessingApproval">
+                                    <i class="fas fa-check-double"></i> Approve All (@pendingApprovals.Count)
+                                </button>
+                                <button @onclick="LoadPendingApprovals" class="btn btn-outline-dark btn-sm">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="card-body">
@@ -699,6 +706,62 @@
             });
         });
 
+        hubConnection.On<dynamic>("AllApprovalsProcessed", (data) =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                try
+                {
+                    string status = "";
+                    int totalCount = 0;
+                    int groupCount = 0;
+                    string message = "";
+                    
+                    // Handle both JsonElement and dynamic object cases
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        if (jsonElement.TryGetProperty("status", out var statusProp))
+                            status = statusProp.GetString() ?? "";
+                        if (jsonElement.TryGetProperty("totalCount", out var totalCountProp))
+                            totalCount = totalCountProp.GetInt32();
+                        if (jsonElement.TryGetProperty("groupCount", out var groupCountProp))
+                            groupCount = groupCountProp.GetInt32();
+                        if (jsonElement.TryGetProperty("message", out var messageProp))
+                            message = messageProp.GetString() ?? "";
+                    }
+                    else
+                    {
+                        status = data.Status?.ToString() ?? "";
+                        totalCount = data.TotalCount ?? 0;
+                        groupCount = data.GroupCount ?? 0;
+                        message = data.Message?.ToString() ?? "";
+                    }
+                    
+                    AddToLog($"Bulk approval completed: {message}");
+                    
+                    // Clear all pending approvals from local list
+                    pendingApprovals.Clear();
+                    
+                    // Refresh to get the latest state from server
+                    await LoadPendingApprovals();
+                    await LoadGloballyCheckedSquares();
+                    
+                    // Update display squares
+                    UpdateDisplaySquares();
+                    
+                    // Reset processing flag
+                    isProcessingApproval = false;
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    AddToLog($"Error processing bulk approval response: {ex.Message}");
+                    isProcessingApproval = false;
+                    StateHasChanged();
+                }
+            });
+        });
+
         await hubConnection.StartAsync();
         await LoadAllSquares();
         await LoadGloballyCheckedSquares();
@@ -966,6 +1029,59 @@
         catch (Exception ex)
         {
             AddToLog($"Error changing live mode: {ex.Message}");
+        }
+    }
+
+    private async Task ApproveAllRequests()
+    {
+        if (hubConnection == null || isProcessingApproval || !pendingApprovals.Any()) return;
+
+        isProcessingApproval = true;
+        StateHasChanged();
+
+        try
+        {
+            var pendingCount = pendingApprovals.Count;
+            AddToLog($"Approving all {pendingCount} pending requests...");
+
+            // Update local state immediately for all pending approvals
+            foreach (var approval in pendingApprovals)
+            {
+                var square = allSquares.FirstOrDefault(s => s.Id == approval.SquareId);
+                if (square != null)
+                {
+                    square.IsChecked = approval.RequestedState;
+                    
+                    // Also update the global state tracking
+                    if (approval.RequestedState && !globallyCheckedSquares.Contains(approval.SquareId))
+                    {
+                        globallyCheckedSquares.Add(approval.SquareId);
+                    }
+                    else if (!approval.RequestedState && globallyCheckedSquares.Contains(approval.SquareId))
+                    {
+                        globallyCheckedSquares.Remove(approval.SquareId);
+                    }
+                }
+            }
+
+            // Call the SignalR method to approve all
+            await hubConnection.SendAsync("ApproveAllPendingSquares");
+
+            // Clear local pending approvals immediately for instant UI feedback
+            pendingApprovals.Clear();
+            UpdateDisplaySquares();
+            StateHasChanged();
+
+            // Note: Processing flag will be reset when we receive the AllApprovalsProcessed event
+            // If no event is received within reasonable time, the flag will be reset on error or user action
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error approving all requests: {ex.Message}");
+            
+            // Reset processing flag on error
+            isProcessingApproval = false;
+            StateHasChanged();
         }
     }
 
