@@ -12,23 +12,26 @@ Both the admin and client applications display version information in their foot
 
 ### Setting Version Information
 
-The version information is automatically populated during CI/CD deployment via environment variables set in the GitHub Actions workflow.
+The version information is automatically populated during CI/CD deployment via environment variables set in the GitHub Actions workflow. The Aspire version is dynamically extracted from the `apphost.cs` file.
 
 For local development, you can set these environment variables before running the application:
 
 ```bash
+# Extract Aspire version from apphost.cs
+ASPIRE_VERSION=$(grep -o '#:sdk Aspire.AppHost.Sdk@.*' ./src/apphost.cs | cut -d'@' -f2 | grep -oP '^\d+\.\d+\.\d+(-preview\.\d+)?')
+
 # For the admin app
 export COMMIT_SHA=$(git rev-parse HEAD)
 export DOTNET_VERSION=$(dotnet --version)
-export ASPIRE_VERSION="13.0.0"
+export ASPIRE_VERSION="$ASPIRE_VERSION"
 export BUILD_TIME=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")
 
 # For the client app (Vue.js) - needs VITE_ prefix
 export VITE_COMMIT_SHA=$(git rev-parse HEAD)
 export VITE_DOTNET_VERSION=$(dotnet --version)
-export VITE_ASPIRE_VERSION="13.0.0-preview.1"
+export VITE_ASPIRE_VERSION="$ASPIRE_VERSION"
 ```
 
 Or create a `.env` file in the `src/bingo-board` directory based on `.env.example`.
 
-**Note:** The Aspire version should match the version referenced in the project files.
+**Note:** The Aspire version is automatically extracted from the `#:sdk` directive in `apphost.cs` during CI/CD deployment.
