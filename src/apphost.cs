@@ -1,10 +1,10 @@
-#:sdk Aspire.AppHost.Sdk@9.5.1
-#:package Aspire.Hosting.Azure.AppContainers@9.5.1
-#:package Aspire.Hosting.Azure.Redis@9.5.1
-#:package Aspire.Hosting.Docker@9.5.1-preview.1.25502.11
-#:package Aspire.Hosting.Redis@9.5.1
-#:package Aspire.Hosting.NodeJS@9.5.1
-#:package Aspire.Hosting.Yarp@9.5.1-preview.1.25502.11
+﻿#:sdk Aspire.AppHost.Sdk@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Azure.AppContainers@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Azure.Redis@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Docker@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Redis@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.NodeJs@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.Yarp@13.0.0-preview.1.25517.3
 #:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.7.0
 #:project ./BingoBoard.Admin
 #:property UserSecretsId=aspire-samples-bingoboard
