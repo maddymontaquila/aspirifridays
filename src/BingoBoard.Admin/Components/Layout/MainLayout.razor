@@ -29,6 +29,12 @@
         <article class="content px-4">
             @Body
         </article>
+        
+        <footer class="version-footer">
+            <div class="version-info">
+                Version Hash: #@versionInfo.GetCommitHash() | Running on .NET @versionInfo.GetDotNetVersion() | with .NET Aspire @versionInfo.GetAspireVersion() | Rendered at: @versionInfo.GetBuildTime()
+            </div>
+        </footer>
     </main>
 </div>
 
@@ -37,3 +43,8 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    [Inject]
+    private IVersionInfoService versionInfo { get; set; } = default!;
+}

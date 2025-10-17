@@ -107,3 +107,17 @@ h1:focus {
     color: #666;
     margin-bottom: 2rem;
 }
+
+/* Version footer styles */
+.version-footer {
+    margin-top: 2rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+}
+
+.version-info {
+    font-size: 0.75rem;
+    color: #666;
+    font-family: 'Courier New', monospace;
+}
