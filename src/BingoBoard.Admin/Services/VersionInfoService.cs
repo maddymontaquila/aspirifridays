@@ -57,7 +57,7 @@ public class VersionInfoService : IVersionInfoService
         }
         
         // Fallback to checking package reference version (this would need to be set at build time)
-        return Environment.GetEnvironmentVariable("ASPIRE_VERSION") ?? "13.0.0";
+        return Environment.GetEnvironmentVariable("ASPIRE_VERSION") ?? "13.0.0-preview.1";
     }
 
     public string GetBuildTime()

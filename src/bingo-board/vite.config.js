@@ -6,8 +6,8 @@ export default defineConfig({
   define: {
     // Make version info available at build time
     'import.meta.env.VITE_COMMIT_SHA': JSON.stringify(process.env.VITE_COMMIT_SHA || process.env.COMMIT_SHA || 'unknown'),
-    'import.meta.env.VITE_DOTNET_VERSION': JSON.stringify(process.env.VITE_DOTNET_VERSION || process.env.DOTNET_VERSION || '9.0.7'),
-    'import.meta.env.VITE_ASPIRE_VERSION': JSON.stringify(process.env.VITE_ASPIRE_VERSION || process.env.ASPIRE_VERSION || '9.3.2')
+    'import.meta.env.VITE_DOTNET_VERSION': JSON.stringify(process.env.VITE_DOTNET_VERSION || process.env.DOTNET_VERSION || '9.0'),
+    'import.meta.env.VITE_ASPIRE_VERSION': JSON.stringify(process.env.VITE_ASPIRE_VERSION || process.env.ASPIRE_VERSION || '13.0.0-preview.1')
   },
   server: {
     proxy: {

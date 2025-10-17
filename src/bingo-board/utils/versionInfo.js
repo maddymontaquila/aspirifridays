@@ -25,7 +25,7 @@ function getDotNetVersion() {
 
 function getAspireVersion() {
   // This would typically be set during build
-  return import.meta.env.VITE_ASPIRE_VERSION || '9.3.2'
+  return import.meta.env.VITE_ASPIRE_VERSION || '13.0.0-preview.1'
 }
 
 function getRenderedTime() {

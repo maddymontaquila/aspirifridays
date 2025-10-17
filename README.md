@@ -26,7 +26,9 @@ export BUILD_TIME=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")
 # For the client app (Vue.js) - needs VITE_ prefix
 export VITE_COMMIT_SHA=$(git rev-parse HEAD)
 export VITE_DOTNET_VERSION=$(dotnet --version)
-export VITE_ASPIRE_VERSION="13.0.0"
+export VITE_ASPIRE_VERSION="13.0.0-preview.1"
 ```
 
 Or create a `.env` file in the `src/bingo-board` directory based on `.env.example`.
+
+**Note:** The Aspire version should match the version referenced in the project files.

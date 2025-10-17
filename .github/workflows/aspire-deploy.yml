@@ -40,12 +40,12 @@ jobs:
         run: |
           echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
           echo "DOTNET_VERSION=$(dotnet --version)" >> $GITHUB_ENV
-          echo "ASPIRE_VERSION=13.0.0" >> $GITHUB_ENV
+          echo "ASPIRE_VERSION=13.0.0-preview.1" >> $GITHUB_ENV
           echo "BUILD_TIME=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")" >> $GITHUB_ENV
           # For Vue app (needs VITE_ prefix)
           echo "VITE_COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
           echo "VITE_DOTNET_VERSION=$(dotnet --version)" >> $GITHUB_ENV
-          echo "VITE_ASPIRE_VERSION=13.0.0" >> $GITHUB_ENV
+          echo "VITE_ASPIRE_VERSION=13.0.0-preview.1" >> $GITHUB_ENV
       
       - name: Azure Login
         uses: azure/login@v2
