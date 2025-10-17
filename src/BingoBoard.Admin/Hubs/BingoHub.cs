@@ -791,7 +791,17 @@ namespace BingoBoard.Admin.Hubs
                     .ToList();
 
                 // Approve all pending requests
-                var totalProcessed = await _bingoService.ApproveAllPendingRequestsAsync(adminId);
+                int totalProcessed;
+                try
+                {
+                    totalProcessed = await _bingoService.ApproveAllPendingRequestsAsync(adminId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Service error while approving all pending requests");
+                    await Clients.Caller.SendAsync("Error", "Failed to approve all pending requests");
+                    return;
+                }
 
                 if (totalProcessed > 0)
                 {

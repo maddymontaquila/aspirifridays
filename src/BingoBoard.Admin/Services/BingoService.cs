@@ -725,7 +725,7 @@ namespace BingoBoard.Admin.Services
 
                 foreach (var group in approvalGroups)
                 {
-                    var firstApproval = group.First();
+                    var groupKey = group.Key;
                     
                     // Process all approvals in this group
                     foreach (var approval in group)
@@ -740,13 +740,13 @@ namespace BingoBoard.Admin.Services
                         await _cache.SetStringAsync(cacheKey, serializedApproval);
 
                         // Update the client's board state in the server cache
-                        await UpdateSquareStatusAsync(approval.ClientId, firstApproval.SquareId, firstApproval.RequestedState);
+                        await UpdateSquareStatusAsync(approval.ClientId, approval.SquareId, approval.RequestedState);
 
                         totalProcessed++;
                     }
 
-                    // Update the square globally for this group
-                    await UpdateSquareGloballyAsync(firstApproval.SquareId, firstApproval.RequestedState);
+                    // Update the square globally for this group (only once per group)
+                    await UpdateSquareGloballyAsync(groupKey.SquareId, groupKey.RequestedState);
                 }
 
                 _logger.LogInformation("Approved {Count} pending requests across {GroupCount} square groups by admin {AdminId}", 
@@ -757,7 +757,7 @@ namespace BingoBoard.Admin.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error approving all pending requests");
-                return 0;
+                throw; // Re-throw to let caller handle the error
             }
         }
 

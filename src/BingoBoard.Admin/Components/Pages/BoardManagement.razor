@@ -748,11 +748,16 @@
                     
                     // Update display squares
                     UpdateDisplaySquares();
+                    
+                    // Reset processing flag
+                    isProcessingApproval = false;
                     StateHasChanged();
                 }
                 catch (Exception ex)
                 {
                     AddToLog($"Error processing bulk approval response: {ex.Message}");
+                    isProcessingApproval = false;
+                    StateHasChanged();
                 }
             });
         });
@@ -1067,17 +1072,11 @@
             UpdateDisplaySquares();
             StateHasChanged();
 
-            // Refresh to ensure we have the latest state
-            await Task.Delay(100); // Small delay to let server process
-            await LoadPendingApprovals();
-            await LoadGloballyCheckedSquares();
+            // Note: State refresh will happen when we receive the AllApprovalsProcessed event
         }
         catch (Exception ex)
         {
             AddToLog($"Error approving all requests: {ex.Message}");
-        }
-        finally
-        {
             isProcessingApproval = false;
             StateHasChanged();
         }
