@@ -1036,11 +1036,11 @@
     {
         if (hubConnection == null || isProcessingApproval || !pendingApprovals.Any()) return;
 
+        isProcessingApproval = true;
+        StateHasChanged();
+
         try
         {
-            isProcessingApproval = true;
-            StateHasChanged();
-
             var pendingCount = pendingApprovals.Count;
             AddToLog($"Approving all {pendingCount} pending requests...");
 
@@ -1072,11 +1072,14 @@
             UpdateDisplaySquares();
             StateHasChanged();
 
-            // Note: State refresh will happen when we receive the AllApprovalsProcessed event
+            // Note: Processing flag will be reset when we receive the AllApprovalsProcessed event
+            // If no event is received within reasonable time, the flag will be reset on error or user action
         }
         catch (Exception ex)
         {
             AddToLog($"Error approving all requests: {ex.Message}");
+            
+            // Reset processing flag on error
             isProcessingApproval = false;
             StateHasChanged();
         }
