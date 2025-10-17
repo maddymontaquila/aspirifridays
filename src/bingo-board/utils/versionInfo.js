@@ -42,5 +42,5 @@ function getRenderedTime() {
 
 export function getVersionString() {
   const info = getVersionInfo()
-  return `Version Hash: #${info.commitHash} | Running on .NET ${info.dotnetVersion} | with .NET Aspire ${info.aspireVersion} | Vite ${info.viteVersion} | Rendered at: ${info.renderedAt}`
+  return `Version Hash: #${info.commitHash} | Running on .NET ${info.dotnetVersion} | with Aspire ${info.aspireVersion} | Vite ${info.viteVersion} | Rendered at: ${info.renderedAt}`
 }
