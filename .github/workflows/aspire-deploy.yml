@@ -46,6 +46,13 @@ jobs:
       - name: Deploy with Aspire
         run: aspire deploy --project ./src/apphost.cs --environment Production
         env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: 1
+          DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+          DOTNET_NOLOGO: true
+          DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+          DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: false
+          DOTNET_MULTILEVEL_LOOKUP: 0
+          DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
