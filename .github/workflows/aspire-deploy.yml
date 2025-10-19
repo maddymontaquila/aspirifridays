@@ -26,6 +26,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
       
       - name: Install Aspire CLI (Native AOT)
         run: curl -sSL https://aspire.dev/install.sh | bash -s -- -q dev
@@ -35,6 +36,22 @@ jobs:
 
       - name: LS
         run: ls -a
+      
+      - name: Set version information
+        run: |
+          # Extract Aspire version from apphost.cs
+          ASPIRE_FULL_VERSION=$(grep -o '#:sdk Aspire.AppHost.Sdk@.*' ./src/apphost.cs | cut -d'@' -f2)
+          # Get semantic version with preview tag (e.g., 13.0.0-preview.1)
+          ASPIRE_VERSION=$(echo $ASPIRE_FULL_VERSION | grep -oP '^\d+\.\d+\.\d+(-preview\.\d+)?')
+          
+          echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
+          echo "DOTNET_VERSION=$(dotnet --version)" >> $GITHUB_ENV
+          echo "ASPIRE_VERSION=$ASPIRE_VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")" >> $GITHUB_ENV
+          # For Vue app (needs VITE_ prefix)
+          echo "VITE_COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
+          echo "VITE_DOTNET_VERSION=$(dotnet --version)" >> $GITHUB_ENV
+          echo "VITE_ASPIRE_VERSION=$ASPIRE_VERSION" >> $GITHUB_ENV
       
       - name: Azure Login
         uses: azure/login@v2
