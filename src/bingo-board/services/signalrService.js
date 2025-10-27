@@ -15,22 +15,22 @@ export class SignalRService {
    */
   async connect() {
     try {
-      // Get the admin service URL from environment variables
-      // Try different possible environment variable formats
-      // let adminUrl = import.meta.env.VITE_ADMIN_URL
+      // Get the backend URL from the injected configuration (for MAUI)
+      // or fallback to relative URL (for web)
+      let baseUrl = '';
+      let hubUrl = 'bingohub'; // Default relative URL for web
 
-      // For debugging, temporarily hardcode the admin URL
-      // if (!adminUrl) {
-      //   adminUrl = 'https://localhost:7207' // fallback for development
-      //   console.warn('No VITE_ADMIN_URL found, using fallback:', adminUrl)
-      // }
-
-      console.log('Environment variables available:')
-      // console.log('VITE_ADMIN_URL:', import.meta.env.VITE_ADMIN_URL)
-      console.log('All env vars:', import.meta.env)
+      if (typeof window !== 'undefined' && window.BACKEND_CONFIG && window.BACKEND_CONFIG.adminUrl) {
+        baseUrl = window.BACKEND_CONFIG.adminUrl;
+        hubUrl = `${baseUrl}/bingohub`;
+        console.log('[SignalR] Using MAUI backend URL:', baseUrl);
+        console.log('[SignalR] Full hub URL:', hubUrl);
+      } else {
+        console.log('[SignalR] Using relative URL for web browser');
+      }
 
       this.connection = new HubConnectionBuilder()
-        .withUrl('bingohub')
+        .withUrl(hubUrl)
         .withAutomaticReconnect()
         .configureLogging(LogLevel.Information)
         .build()

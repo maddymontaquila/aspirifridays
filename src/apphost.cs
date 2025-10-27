@@ -97,4 +97,18 @@ builder.AddYarp("bingoboard")
     })
     .WithExplicitStart();
 
+var publicDevTunnel = builder.AddDevTunnel("devtunnel-public")
+    .WithAnonymousAccess() // All ports on this tunnel default to allowing anonymous access
+    .WithReference(admin.GetEndpoint("https"));
+
+var mauiapp = builder.AddMauiProject("mauiapp", @"BingoBoard.MauiHybrid/BingoBoard.MauiHybrid.csproj");
+
+// Add iOS simulator with default simulator (uses running or default simulator)
+mauiapp.AddiOSSimulator()
+    .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
+    .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
+
+mauiapp.AddMacCatalystDevice()
+    .WithReference(admin.GetEndpoint("https"));
+
 builder.Build().Run();
