@@ -1,8 +1,8 @@
 using BingoBoard.Admin.Components;
 using BingoBoard.Admin.Hubs;
 using BingoBoard.Admin.Services;
-using BingoBoard.Admin.Middleware;
-using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
+using BingoBoard.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,20 +14,25 @@ var frontendURL = Environment.GetEnvironmentVariable("services__bingoboard__http
                   Environment.GetEnvironmentVariable("services__bingoboard__https__0") ??
                   "http+https://bingoboard"; // Fallback to hardcoded value if service discovery not available
 
-// Add authentication services (required even for custom auth)
-builder.Services.AddAuthentication("Cookies")
-    .AddCookie("Cookies", options =>
+builder.Services.AddAuthentication(options =>
     {
-        options.LoginPath = "/login";
-        options.LogoutPath = "/logout";
-        options.ExpireTimeSpan = TimeSpan.FromHours(24);
-        options.SlidingExpiration = true;
-        options.Cookie.Name = "BingoAdmin";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-    });
-
+        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+    })
+    .AddIdentityCookies();
 builder.Services.AddAuthorization();
+
+builder.AddApplicationDbContext();
+
+builder.Services.AddDefaultIdentity()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.LogoutPath = "/logout";
+});
 
 // Add controllers for testing
 builder.Services.AddControllers();
@@ -46,7 +51,6 @@ builder.AddRedisDistributedCache(connectionName: "cache");
 // Register custom services
 builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
-builder.Services.AddScoped<IPasswordAuthService, PasswordAuthService>();
 
 // Register background services
 builder.Services.AddHostedService<ApprovalCleanupService>();
@@ -66,20 +70,14 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// app.UseHttpsRedirection();
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.MapStaticAssets();
 
 // Use CORS  
 app.UseCors();
-
-// Add authentication and authorization middleware
-app.UseAuthentication();
-app.UseAuthorization();
-
-// Add password authentication middleware (temporarily disabled for debugging)
-// app.UseMiddleware<PasswordAuthMiddleware>();
 
 app.UseAntiforgery();
 
@@ -94,7 +92,11 @@ app.MapRazorComponents<App>()
 app.MapHub<BingoHub>("/bingohub");
 
 // Add login and logout endpoints
-app.MapPost("/auth/login", async (HttpContext context, IPasswordAuthService authService, ILogger<Program> logger) =>
+app.MapPost("/auth/login", async (
+    HttpContext context,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager,
+    ILogger<Program> logger) =>
 {
     // Read password from form data instead of query parameter
     var form = await context.Request.ReadFormAsync();
@@ -102,15 +104,17 @@ app.MapPost("/auth/login", async (HttpContext context, IPasswordAuthService auth
 
     logger.LogInformation("Login attempt with password: {Password}", password);
 
-    if (authService.ValidatePassword(password))
+    var user = await userManager.FindByNameAsync("admin");
+    if (user is null)
+    {
+        logger.LogInformation("Admin user not created.");
+        return Results.Redirect("/login?error=nouser");
+    }
+
+    var result = await signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
+    if (result.Succeeded)
     {
         logger.LogInformation("Password valid, signing in user");
-        await authService.SignInAsync(context);
-
-        // Check if user was actually signed in
-        var authResult = await context.AuthenticateAsync("Cookies");
-        logger.LogInformation("After sign in - Authentication succeeded: {Success}", authResult.Succeeded);
-
         return Results.Redirect("/"); // Redirect to simple test endpoint
     }
 
@@ -118,9 +122,9 @@ app.MapPost("/auth/login", async (HttpContext context, IPasswordAuthService auth
     return Results.Redirect("/login?error=invalid");
 });
 
-app.MapPost("/auth/logout", async (HttpContext context, IPasswordAuthService authService) =>
+app.MapPost("/auth/logout", async (HttpContext context, SignInManager<ApplicationUser> signInManager) =>
 {
-    await authService.SignOutAsync(context);
+    await signInManager.SignOutAsync();
     return Results.Redirect("/login");
 });
 

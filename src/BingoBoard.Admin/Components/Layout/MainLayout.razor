@@ -16,6 +16,7 @@
                     Admin User
                 </span>
                 <form method="post" action="/auth/logout" class="d-inline">
+                    <AntiforgeryToken />
                     <button type="submit" class="btn btn-outline-danger btn-sm">
                         <i class="fas fa-sign-out-alt"></i> Sign Out
                     </button>
