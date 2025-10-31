@@ -4,10 +4,12 @@
 #:package Aspire.Hosting.Azure.Redis@13.0.0-preview.1.25517.3
 #:package Aspire.Hosting.Docker@13.0.0-preview.1.25517.3
 #:package Aspire.Hosting.Redis@13.0.0-preview.1.25517.3
+#:package Aspire.Hosting.SqlServer@13.0.0-preview.1.25517.3
 #:package Aspire.Hosting.NodeJs@13.0.0-preview.1.25517.3
 #:package Aspire.Hosting.Yarp@13.0.0-preview.1.25517.3
 #:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.7.0
 #:project ./BingoBoard.Admin
+#:project ./BingoBoard.MigrationService
 #:property UserSecretsId=aspire-samples-bingoboard
 
 using Azure.Provisioning;
@@ -25,12 +27,24 @@ var cache = builder.AddRedis("cache")
     {
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 1;
-    }); ;
+    });
+
+var sql = builder.AddSqlServer("sql")
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var db = sql.AddDatabase("db");
+
+var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
+    .WithEnvironment("Authentication__AdminPassword", password)
+    .WithReference(db)
+    .WaitFor(db);
 
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
+    .WithReference(db)
+    .WithReference(migrations)
     .WaitFor(cache)
-    .WithEnvironment("Authentication__AdminPassword", password)
+    .WaitForCompletion(migrations)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((infra, app) =>
     {
@@ -72,7 +86,7 @@ builder.AddYarp("bingoboard")
             builder.AddParameter("yarp-domain", "aspireify.live"),
             builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247")
         );
-        app.Template.Scale.Rules.Add(new (
+        app.Template.Scale.Rules.Add(new(
             new ContainerAppScaleRule
             {
                 Name = "http-scaler",
