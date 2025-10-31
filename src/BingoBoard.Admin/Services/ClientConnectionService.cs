@@ -3,24 +3,16 @@ using BingoBoard.Admin.Services;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 
-namespace BingoBoard.Admin.Services
+namespace BingoBoard.Admin.Services;
+
+/// <summary>
+/// Implementation of client connection service using Redis for persistence
+/// </summary>
+public class ClientConnectionService(IDistributedCache cache, ILogger<ClientConnectionService> logger) : IClientConnectionService
 {
-    /// <summary>
-    /// Implementation of client connection service using Redis for persistence
-    /// </summary>
-    public class ClientConnectionService : IClientConnectionService
-    {
-        private readonly IDistributedCache _cache;
-        private readonly ILogger<ClientConnectionService> _logger;
-        private const string ClientsKey = "connected_clients";
+    private const string ClientsKey = "connected_clients";
 
-        public ClientConnectionService(IDistributedCache cache, ILogger<ClientConnectionService> logger)
-        {
-            _cache = cache;
-            _logger = logger;
-        }
-
-        public async Task AddClientAsync(ConnectedClient client)
+    public async Task AddClientAsync(ConnectedClient client)
         {
             try
             {
@@ -34,12 +26,12 @@ namespace BingoBoard.Admin.Services
                 
                 await SaveClientsAsync(clients);
                 
-                _logger.LogInformation("Added client {ConnectionId} at {ConnectedAt}", 
+                logger.LogInformation("Added client {ConnectionId} at {ConnectedAt}", 
                     client.ConnectionId, client.ConnectedAt);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding client {ConnectionId}", client.ConnectionId);
+                logger.LogError(ex, "Error adding client {ConnectionId}", client.ConnectionId);
                 throw;
             }
         }
@@ -60,20 +52,20 @@ namespace BingoBoard.Admin.Services
                     
                     // Clean up the bidirectional mapping
                     var connectionToPersistentKey = $"connection_to_persistent_{connectionId}";
-                    await _cache.RemoveAsync(connectionToPersistentKey);
+                    await cache.RemoveAsync(connectionToPersistentKey);
                     
                     if (!string.IsNullOrEmpty(persistentClientId))
                     {
                         var persistentToConnectionKey = $"persistent_to_connection_{persistentClientId}";
-                        await _cache.RemoveAsync(persistentToConnectionKey);
+                        await cache.RemoveAsync(persistentToConnectionKey);
                     }
                     
-                    _logger.LogInformation("Removed client {ConnectionId} and cleaned up mappings", connectionId);
+                    logger.LogInformation("Removed client {ConnectionId} and cleaned up mappings", connectionId);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error removing client {ConnectionId}", connectionId);
+                logger.LogError(ex, "Error removing client {ConnectionId}", connectionId);
                 throw;
             }
         }
@@ -82,18 +74,18 @@ namespace BingoBoard.Admin.Services
         {
             try
             {
-                var serializedClients = await _cache.GetStringAsync(ClientsKey);
+                var serializedClients = await cache.GetStringAsync(ClientsKey);
                 
                 if (string.IsNullOrEmpty(serializedClients))
-                    return new List<ConnectedClient>();
+                    return [];
 
                 var clients = JsonSerializer.Deserialize<List<ConnectedClient>>(serializedClients);
-                return clients ?? new List<ConnectedClient>();
+                return clients ?? [];
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving all clients");
-                return new List<ConnectedClient>();
+                logger.LogError(ex, "Error retrieving all clients");
+                return [];
             }
         }
 
@@ -106,7 +98,7 @@ namespace BingoBoard.Admin.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving client {ConnectionId}", connectionId);
+                logger.LogError(ex, "Error retrieving client {ConnectionId}", connectionId);
                 return null;
             }
         }
@@ -126,7 +118,7 @@ namespace BingoBoard.Admin.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating activity for client {ConnectionId}", connectionId);
+                logger.LogError(ex, "Error updating activity for client {ConnectionId}", connectionId);
             }
         }
 
@@ -143,13 +135,13 @@ namespace BingoBoard.Admin.Services
                     client.LastActivity = DateTime.UtcNow;
                     await SaveClientsAsync(clients);
                     
-                    _logger.LogInformation("Associated bingo set {BingoSetId} with client {ConnectionId}", 
+                    logger.LogInformation("Associated bingo set {BingoSetId} with client {ConnectionId}", 
                         bingoSetId, connectionId);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error associating bingo set with client {ConnectionId}", connectionId);
+                logger.LogError(ex, "Error associating bingo set with client {ConnectionId}", connectionId);
             }
         }
 
@@ -161,22 +153,22 @@ namespace BingoBoard.Admin.Services
                 var connectionToPersistentKey = $"connection_to_persistent_{connectionId}";
                 var persistentToConnectionKey = $"persistent_to_connection_{persistentClientId}";
                 
-                await _cache.SetStringAsync(connectionToPersistentKey, persistentClientId, new DistributedCacheEntryOptions
+                await cache.SetStringAsync(connectionToPersistentKey, persistentClientId, new DistributedCacheEntryOptions
                 {
                     SlidingExpiration = TimeSpan.FromHours(24)
                 });
                 
-                await _cache.SetStringAsync(persistentToConnectionKey, connectionId, new DistributedCacheEntryOptions
+                await cache.SetStringAsync(persistentToConnectionKey, connectionId, new DistributedCacheEntryOptions
                 {
                     SlidingExpiration = TimeSpan.FromHours(24)
                 });
 
-                _logger.LogInformation("Mapped connection {ConnectionId} to persistent client {PersistentClientId}", 
+                logger.LogInformation("Mapped connection {ConnectionId} to persistent client {PersistentClientId}", 
                     connectionId, persistentClientId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error mapping connection {ConnectionId} to persistent client {PersistentClientId}", 
+                logger.LogError(ex, "Error mapping connection {ConnectionId} to persistent client {PersistentClientId}", 
                     connectionId, persistentClientId);
             }
         }
@@ -186,11 +178,11 @@ namespace BingoBoard.Admin.Services
             try
             {
                 var mappingKey = $"connection_to_persistent_{connectionId}";
-                return await _cache.GetStringAsync(mappingKey);
+                return await cache.GetStringAsync(mappingKey);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting persistent client ID for connection {ConnectionId}", connectionId);
+                logger.LogError(ex, "Error getting persistent client ID for connection {ConnectionId}", connectionId);
                 return null;
             }
         }
@@ -201,11 +193,11 @@ namespace BingoBoard.Admin.Services
             {
                 // Use the direct reverse mapping for efficiency
                 var persistentToConnectionKey = $"persistent_to_connection_{persistentClientId}";
-                return await _cache.GetStringAsync(persistentToConnectionKey);
+                return await cache.GetStringAsync(persistentToConnectionKey);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting connection ID for persistent client {PersistentClientId}", persistentClientId);
+                logger.LogError(ex, "Error getting connection ID for persistent client {PersistentClientId}", persistentClientId);
                 return null;
             }
         }
@@ -213,10 +205,9 @@ namespace BingoBoard.Admin.Services
         private async Task SaveClientsAsync(List<ConnectedClient> clients)
         {
             var serializedClients = JsonSerializer.Serialize(clients);
-            await _cache.SetStringAsync(ClientsKey, serializedClients, new DistributedCacheEntryOptions
+            await cache.SetStringAsync(ClientsKey, serializedClients, new DistributedCacheEntryOptions
             {
                 SlidingExpiration = TimeSpan.FromHours(24)
             });
         }
     }
-}

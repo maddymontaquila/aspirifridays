@@ -623,9 +623,9 @@
                     else
                     {
                         // Fallback to dynamic access
-                        squareId = data.SquareId?.ToString() ?? "";
-                        isChecked = data.IsChecked ?? false;
-                        message = data.Message?.ToString() ?? "";
+                        squareId = data?.SquareId?.ToString() ?? "";
+                        isChecked = data?.IsChecked ?? false;
+                        message = data?.Message?.ToString() ?? "";
                     }
                     
                     Console.WriteLine($"[Admin] AdminSquareUpdate received: SquareId={squareId}, IsChecked={isChecked}");

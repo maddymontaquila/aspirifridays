@@ -1,40 +1,46 @@
 using BingoBoard.Admin.Services;
 
-namespace BingoBoard.Admin.Services
+namespace BingoBoard.Admin.Services;
+
+/// <summary>
+/// Background service to clean up expired approval requests
+/// </summary>
+public class ApprovalCleanupService(IServiceProvider serviceProvider, ILogger<ApprovalCleanupService> logger) : BackgroundService
 {
-    /// <summary>
-    /// Background service to clean up expired approval requests
-    /// </summary>
-    public class ApprovalCleanupService : BackgroundService
+    private readonly TimeSpan _cleanupInterval = TimeSpan.FromMinutes(30); // Run every 30 minutes
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        private readonly IServiceProvider _serviceProvider;
-        private readonly ILogger<ApprovalCleanupService> _logger;
-        private readonly TimeSpan _cleanupInterval = TimeSpan.FromMinutes(30); // Run every 30 minutes
-
-        public ApprovalCleanupService(IServiceProvider serviceProvider, ILogger<ApprovalCleanupService> logger)
+        while (!stoppingToken.IsCancellationRequested)
         {
-            _serviceProvider = serviceProvider;
-            _logger = logger;
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
-                try
-                {
-                    using var scope = _serviceProvider.CreateScope();
-                    var bingoService = scope.ServiceProvider.GetRequiredService<IBingoService>();
-                    
-                    await bingoService.CleanupExpiredApprovalsAsync();
-                    _logger.LogInformation("Completed approval cleanup at {Timestamp}", DateTime.UtcNow);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error during approval cleanup");
-                }
+                using var scope = serviceProvider.CreateScope();
+                var bingoService = scope.ServiceProvider.GetRequiredService<IBingoService>();
+                
+                await bingoService.CleanupExpiredApprovalsAsync(stoppingToken);
+                logger.LogInformation("Completed approval cleanup at {Timestamp}", DateTime.UtcNow);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when the service is stopping
+                logger.LogInformation("Approval cleanup service is stopping");
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error during approval cleanup");
+            }
 
+            try
+            {
                 await Task.Delay(_cleanupInterval, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when the service is stopping
+                logger.LogInformation("Approval cleanup service delay was cancelled");
+                break;
             }
         }
     }

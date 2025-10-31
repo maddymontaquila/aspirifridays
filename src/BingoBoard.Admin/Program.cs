@@ -35,9 +35,6 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.LogoutPath = "/logout";
 });
 
-// Add controllers for testing
-builder.Services.AddControllers();
-
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -51,6 +48,18 @@ builder.Services.AddSignalR()
 
 // Add Redis with Aspire client for distributed caching and raw Redis access
 builder.AddRedisDistributedCache(connectionName: "cache");
+
+// Add CORS services
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(frontendURL.Split(','))
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // Register custom services
 builder.Services.AddScoped<IBingoService, BingoService>();
@@ -84,9 +93,6 @@ app.MapStaticAssets();
 app.UseCors();
 
 app.UseAntiforgery();
-
-// Map controllers for testing
-app.MapControllers();
 
 // Map Razor components
 app.MapRazorComponents<App>()
