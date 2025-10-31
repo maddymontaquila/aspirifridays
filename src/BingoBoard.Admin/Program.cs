@@ -3,6 +3,7 @@ using BingoBoard.Admin.Hubs;
 using BingoBoard.Admin.Services;
 using Microsoft.AspNetCore.Identity;
 using BingoBoard.Data;
+using Microsoft.AspNetCore.Antiforgery;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +41,9 @@ builder.Services.AddControllers();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<RedirectManager>();
 
 // Add SignalR
 builder.Services.AddSignalR()
@@ -126,6 +130,45 @@ app.MapPost("/auth/logout", async (HttpContext context, SignInManager<Applicatio
 {
     await signInManager.SignOutAsync();
     return Results.Redirect("/login");
+});
+
+app.MapPost("/passkey/creation-options", async (
+    HttpContext context,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager,
+    IAntiforgery antiforgery) =>
+{
+    await antiforgery.ValidateRequestAsync(context);
+
+    var user = await userManager.GetUserAsync(context.User);
+    if (user is null)
+    {
+        return Results.NotFound($"Unable to load user with ID '{userManager.GetUserId(context.User)}'.");
+    }
+
+    var userId = await userManager.GetUserIdAsync(user);
+    var userName = await userManager.GetUserNameAsync(user) ?? "User";
+    var optionsJson = await signInManager.MakePasskeyCreationOptionsAsync(new()
+    {
+        Id = userId,
+        Name = userName,
+        DisplayName = userName
+    });
+    return TypedResults.Content(optionsJson, contentType: "application/json");
+});
+
+app.MapPost("/passkey/request-options", async (
+    HttpContext context,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager,
+    IAntiforgery antiforgery,
+    string? username) =>
+{
+    await antiforgery.ValidateRequestAsync(context);
+
+    var user = string.IsNullOrEmpty(username) ? null : await userManager.FindByNameAsync(username);
+    var optionsJson = await signInManager.MakePasskeyRequestOptionsAsync(user);
+    return TypedResults.Content(optionsJson, contentType: "application/json");
 });
 
 app.Run();

@@ -1,0 +1,307 @@
+@page "/account"
+@using System.Buffers.Text
+@using Microsoft.CodeAnalysis.Differencing
+@using System.Threading.Tasks
+@attribute [Authorize]
+
+@inject NavigationManager Navigation
+@inject RedirectManager Redirect
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+
+<PageTitle>Account - Bingo Admin</PageTitle>
+<StatusMessage />
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-th-large"></i> Account
+            </h1>
+            <p class="text-muted">Manage the admin account.</p>
+        </div>
+    </div>
+    
+    <form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
+        <AntiforgeryToken />
+        @if (currentPasskeys is { Count: >= MaxPasskeyCount })
+        {
+            <p class="text-danger">You have reached the maximum number of allowed passkeys. Please delete one before adding a new one.</p>
+        }
+        else
+        {
+            <PasskeySubmit Operation="PasskeyOperation.Create" Name="@nameof(SubmittedPasskey)" class="btn btn-primary">Add a new passkey</PasskeySubmit>
+        }
+    </form>
+
+    <!-- Passkeys List Section -->
+    @if (currentPasskeys is { Count: > 0 })
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-key"></i> Your Passkeys
+                            <span class="badge bg-primary ms-2">@currentPasskeys.Count</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            @foreach (var passkey in currentPasskeys)
+                            {
+                                var passkeyIdBase64Url = Base64Url.EncodeToString(passkey.CredentialId);
+                                var isRenaming = RenamingPasskeyId == passkeyIdBase64Url;
+
+                                <div class="list-group-item">
+                                    @if (isRenaming)
+                                    {
+                                        <!-- Rename Mode -->
+                                        <div class="d-flex align-items-center">
+                                            <form @formname="@($"rename-passkey-{passkeyIdBase64Url}")" @onsubmit="RenamePasskey" method="post">
+                                                <div class="btn-group">
+                                                    <AntiforgeryToken />
+                                                    <input type="hidden" name="edit-id" value="@passkeyIdBase64Url" />
+                                                    <div class="flex-grow-1 me-3">
+                                                        <input type="text" name="edit-value" class="form-control" placeholder="Enter passkey name" />
+                                                    </div>
+                                                    <button type="submit" name="edit-action" value="confirm" class="btn btn-success btn-sm">
+                                                        <i class="fas fa-check"></i> Confirm
+                                                    </button>
+                                                    <button type="submit" name="edit-action" value="cancel" class="btn btn-secondary btn-sm">
+                                                        <i class="fas fa-times"></i> Cancel
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <!-- Normal Display Mode -->
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">
+                                                    @if (!string.IsNullOrEmpty(passkey.Name))
+                                                    {
+                                                        <strong>@passkey.Name</strong>
+                                                    }
+                                                    else
+                                                    {
+                                                        <em class="text-muted">Unnamed Passkey</em>
+                                                    }
+                                                </h6>
+                                                <small class="text-muted">
+                                                    Created: @passkey.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                                                </small>
+                                            </div>
+                                            <form @formname="@($"edit-passkey-{passkeyIdBase64Url}")" @onsubmit="EditPasskey" method="post">
+                                                <div class="btn-group">
+                                                    <AntiforgeryToken />
+                                                    <input type="hidden" name="edit-id" value="@passkeyIdBase64Url" />
+                                                    <button type="submit" name="edit-action" value="rename" class="btn btn-outline-primary btn-sm">
+                                                        <i class="fas fa-edit"></i> Rename
+                                                    </button>
+                                                    <button type="submit" name="edit-action" value="delete" class="btn btn-outline-danger btn-sm">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentPasskeys is not null)
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No passkeys found. Add your first passkey to get started.
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private const int MaxPasskeyCount = 100;
+
+    private ApplicationUser? user;
+    private IList<UserPasskeyInfo>? currentPasskeys;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "add-passkey")]
+    private SubmittedPasskey SubmittedPasskey { get; set; } = default!;
+
+    [SupplyParameterFromForm(Name = "edit-action")]
+    private string? EditAction { get; set; }
+
+    [SupplyParameterFromForm(Name = "edit-value")]
+    private string? EditedValue { get; set; }
+
+    [SupplyParameterFromForm(Name = "edit-id")]
+    private string? EditedPasskeyId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "rename")]
+    private string? RenamingPasskeyId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            Navigation.NotFound();
+            return;
+        }
+        currentPasskeys = await UserManager.GetPasskeysAsync(user);
+    }
+
+    private async Task AddPasskey()
+    {
+        if (user is null)
+        {
+            Navigation.NotFound();
+            return;
+        }
+
+        if (SubmittedPasskey.Error is { Length: > 0 } error)
+        {
+            Redirect.RedirectToCurrentPageWithStatus($"Error: {error}", HttpContext);
+            return;
+        }
+
+        if (SubmittedPasskey.CredentialJson is not { Length: > 0 } credentialJson)
+        {
+            Redirect.RedirectToCurrentPageWithStatus("Error: The browser did not provide a passkey.", HttpContext);
+            return;
+        }
+
+        if (currentPasskeys!.Count >= MaxPasskeyCount)
+        {
+            Redirect.RedirectToCurrentPageWithStatus($"Error: You have reached the maximum number of allowed passkeys.", HttpContext);
+            return;
+        }
+
+        var attestationResult = await SignInManager.PerformPasskeyAttestationAsync(credentialJson);
+        if (!attestationResult.Succeeded)
+        {
+            Redirect.RedirectToCurrentPageWithStatus($"Error: Could not add the passkey: {attestationResult.Failure.Message}", HttpContext);
+            return;
+        }
+
+        var addPasskeyResult = await UserManager.AddOrUpdatePasskeyAsync(user, attestationResult.Passkey);
+        if (!addPasskeyResult.Succeeded)
+        {
+            Redirect.RedirectToCurrentPageWithStatus("Error: The passkey could not be added to your account.", HttpContext);
+            return;
+        }
+
+        // Immediately prompt the user to rename the passkey
+        var credentialIdBase64Url = Base64Url.EncodeToString(attestationResult.Passkey.CredentialId);
+        RedirectToRenamePasskey(credentialIdBase64Url);
+    }
+
+    private async Task EditPasskey()
+    {
+        switch (EditAction)
+        {
+            case "rename":
+                if (EditedPasskeyId is { Length: > 0 })
+                {
+                    RedirectToRenamePasskey(EditedPasskeyId);
+                }
+                else
+                {
+                    Redirect.RedirectToCurrentPageWithStatus("Error: No passkey credential ID.", HttpContext);
+                }
+                break;
+            case "delete":
+                await DeletePasskey();
+                break;
+        }
+    }
+    
+    private async Task RenamePasskey()
+    {
+        if (user is null)
+        {
+            Navigation.NotFound();
+            return;
+        }
+
+        if (EditAction is not "confirm" || EditedPasskeyId is not { Length: > 0 })
+        {
+            Redirect.RedirectToCurrentPage();
+            return;
+        }
+
+        byte[] credentialId;
+        try
+        {
+            credentialId = Base64Url.DecodeFromChars(EditedPasskeyId);
+        }
+        catch (FormatException)
+        {
+            Redirect.RedirectToCurrentPageWithStatus("Error: The specified passkey ID had an invalid format.", HttpContext);
+            return;
+        }
+        
+        var passkey = await UserManager.GetPasskeyAsync(user, credentialId);
+        if (passkey is null)
+        {
+            Redirect.RedirectToCurrentPageWithStatus("Error: The passkey does not exist.", HttpContext);
+            return;
+        }
+        
+        passkey.Name = EditedValue;
+        var result = await UserManager.AddOrUpdatePasskeyAsync(user, passkey);
+        if (!result.Succeeded)
+        {
+            Redirect.RedirectToCurrentPageWithStatus("Error: The passkey could not be renamed.", HttpContext);
+            return;
+        }
+        
+        Redirect.RedirectToCurrentPageWithStatus("Passkey renamed successfully.", HttpContext);
+    }
+    
+    private async Task DeletePasskey()
+    {
+        if (user is null)
+        {
+            Navigation.NotFound();
+            return;
+        }
+
+        byte[] credentialId;
+        try
+        {
+            credentialId = Base64Url.DecodeFromChars(EditedPasskeyId);
+        }
+        catch (FormatException)
+        {
+            Redirect.RedirectToCurrentPageWithStatus("Error: The specified passkey ID had an invalid format.", HttpContext);
+            return;
+        }
+
+        var result = await UserManager.RemovePasskeyAsync(user, credentialId);
+        if (!result.Succeeded)
+        {
+            Redirect.RedirectToCurrentPageWithStatus("Error: The passkey could not be deleted.", HttpContext);
+            return;
+        }
+
+        Redirect.RedirectToCurrentPageWithStatus("Passkey deleted successfully.", HttpContext);
+    }
+    
+    private void RedirectToRenamePasskey(string credentialIdBase64Url)
+    {
+        Redirect.RedirectToCurrentPage(new() { ["rename"] = credentialIdBase64Url });
+    }
+}
