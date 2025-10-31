@@ -8,51 +8,38 @@ public partial class MainPage : ContentPage
 	{
 		InitializeComponent();
 		
-		// Get the admin backend URL from Aspire's injected environment variable
-		_adminUrl = Environment.GetEnvironmentVariable("services__boardadmin__https__0") 
-		         ?? Environment.GetEnvironmentVariable("services__boardadmin__http__0")
-		         ?? "https://localhost:7207"; // Fallback for development
+		// Get admin URL from Aspire service discovery
+		_adminUrl = Environment.GetEnvironmentVariable("services__boardadmin__https__0") ?? "https://localhost:7207";
 
-		Console.WriteLine($"[MAUI] Backend URL: {_adminUrl}");
-		
-		// Intercept web requests to inject configuration
+		// Intercept web requests to inject configuration into HTML before JavaScript runs
 		hybridWebView.WebResourceRequested += OnWebResourceRequested;
 	}
 
-	private void OnWebResourceRequested(object? sender, WebViewWebResourceRequestedEventArgs e)
+	private async void OnWebResourceRequested(object? sender, WebViewWebResourceRequestedEventArgs e)
 	{
-		// Intercept the index.html request to inject the backend configuration
-		if (e.Uri.ToString().EndsWith("index.html") || e.Uri.ToString().EndsWith("/"))
+		// Intercept the root request to inject backend configuration
+		if (e.Uri.ToString() == "app://0.0.0.1/" || e.Uri.ToString().EndsWith("index.html"))
 		{
 			e.Handled = true;
 			
 			try
 			{
-				// Read the original HTML
-				var originalHtml = File.ReadAllText(Path.Combine(FileSystem.AppDataDirectory, "../Resources/Raw/wwwroot/index.html"));
+				// Read the original HTML from the app package
+				using var stream = await FileSystem.OpenAppPackageFileAsync("wwwroot/index.html");
+				using var reader = new StreamReader(stream);
+				var originalHtml = await reader.ReadToEndAsync();
 				
-				// Inject the configuration script before other scripts
-				var configScript = $@"
-<script>
-    window.BACKEND_CONFIG = {{
-        adminUrl: '{_adminUrl}'
-    }};
-    console.log('[MAUI] Backend URL configured:', '{_adminUrl}');
-</script>";
-				
-				// Insert the config script right after the <head> tag
+				// Inject configuration script as the first script in <head>
+				var configScript = $"<script>window.BACKEND_CONFIG={{adminUrl:'{_adminUrl}'}};</script>";
 				var modifiedHtml = originalHtml.Replace("<head>", "<head>" + configScript);
 				
-				// Return the modified HTML
-				var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(modifiedHtml));
-				e.SetResponse(200, "OK", "text/html", stream);
-				
-				Console.WriteLine("[MAUI] Successfully injected backend configuration into HTML");
+				// Return modified HTML
+				var responseStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(modifiedHtml));
+				e.SetResponse(200, "OK", "text/html", responseStream);
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine($"[MAUI] Failed to inject configuration: {ex.Message}");
-				// Let the request proceed normally if injection fails
 				e.Handled = false;
 			}
 		}

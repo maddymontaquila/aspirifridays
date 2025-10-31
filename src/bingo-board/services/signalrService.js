@@ -11,26 +11,54 @@ export class SignalRService {
   }
 
   /**
+   * Wait for configuration from MAUI (if running in HybridWebView)
+   */
+  async waitForConfiguration(timeout = 5000) {
+    // If we already have config, return immediately
+    if (window.BACKEND_CONFIG?.adminUrl) {
+      return true;
+    }
+
+    // Check if we're in a HybridWebView by looking for the HybridWebView object
+    if (typeof window.HybridWebView === 'undefined') {
+      // Not in HybridWebView, proceed without config
+      return false;
+    }
+    
+    // Wait for configuration with timeout
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      if (window.BACKEND_CONFIG?.adminUrl) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    return false;
+  }
+
+  /**
    * Initialize connection to the SignalR hub
    */
   async connect() {
     try {
+      // Wait for MAUI configuration if in HybridWebView
+      await this.waitForConfiguration();
+
       // Get the backend URL from the injected configuration (for MAUI)
       // or fallback to relative URL (for web)
-      let baseUrl = '';
       let hubUrl = 'bingohub'; // Default relative URL for web
 
       if (typeof window !== 'undefined' && window.BACKEND_CONFIG && window.BACKEND_CONFIG.adminUrl) {
-        baseUrl = window.BACKEND_CONFIG.adminUrl;
+        const baseUrl = window.BACKEND_CONFIG.adminUrl;
         hubUrl = `${baseUrl}/bingohub`;
-        console.log('[SignalR] Using MAUI backend URL:', baseUrl);
-        console.log('[SignalR] Full hub URL:', hubUrl);
-      } else {
-        console.log('[SignalR] Using relative URL for web browser');
       }
 
       this.connection = new HubConnectionBuilder()
-        .withUrl(hubUrl)
+        .withUrl(hubUrl, {
+          skipNegotiation: true,
+          transport: HttpTransportType.WebSockets
+        })
         .withAutomaticReconnect()
         .configureLogging(LogLevel.Information)
         .build()
