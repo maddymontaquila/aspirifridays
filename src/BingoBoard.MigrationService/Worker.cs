@@ -8,7 +8,8 @@ namespace BingoBoard.MigrationService;
 public class Worker(
     IServiceProvider serviceProvider,
     IHostApplicationLifetime hostApplicationLifetime,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    ILogger<Worker> logger)
     : BackgroundService
 {
     public const string ActivitySourceName = "Migrations";
@@ -40,12 +41,13 @@ public class Worker(
         hostApplicationLifetime.StopApplication();
     }
 
-    private static async Task RunMigrationAsync(ApplicationDbContext dbContext, CancellationToken cancellationToken)
+    private async Task RunMigrationAsync(ApplicationDbContext dbContext, CancellationToken cancellationToken)
     {
         var strategy = dbContext.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
             // Run migration in a transaction to avoid partial migration if it fails.
+            logger.LogInformation("Migrating the database...");
             await dbContext.Database.MigrateAsync(cancellationToken);
         });
     }
@@ -70,17 +72,50 @@ public class Worker(
             var adminUser = await userStore.FindByNameAsync(AdminUserName, cancellationToken);
             if (adminUser is null)
             {
+                logger.LogInformation("Creating the admin user...");
+
                 adminUser = new ApplicationUser();
                 await userStore.SetUserNameAsync(adminUser, AdminUserName, CancellationToken.None);
-                var result = await userManager.CreateAsync(adminUser, password);
+                var result = await userManager.CreateAsync(adminUser);
 
                 if (!result.Succeeded)
                 {
                     throw new InvalidOperationException("Unable to create the admin user.");
                 }
+
+                logger.LogInformation("Admin user created!");
             }
+
+            var passwordStore = (IUserPasswordStore<ApplicationUser>)userStore;
+            await UpdatePasswordHashAsync(userManager, passwordStore, adminUser, password, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
         });
+    }
+
+    private async Task UpdatePasswordHashAsync(
+        UserManager<ApplicationUser> userManager,
+        IUserPasswordStore<ApplicationUser> passwordStore,
+        ApplicationUser user,
+        string newPassword,
+        CancellationToken cancellationToken)
+    {
+        var passwordHasher = userManager.PasswordHasher;
+        var oldHash = await passwordStore.GetPasswordHashAsync(user, cancellationToken);
+        if (oldHash is not null && passwordHasher.VerifyHashedPassword(user, oldHash, newPassword) is not PasswordVerificationResult.Failed)
+        {
+            // The new password matches the previous password.
+            logger.LogInformation("The configured password matches the current password.");
+            return;
+        }
+
+        // The password doesn't exist yet or has changed - update it.
+        logger.LogInformation("The configured password has changed. Updating the password...");
+
+        var newHash = passwordHasher.HashPassword(user, newPassword);
+        await passwordStore.SetPasswordHashAsync(user, newHash, cancellationToken);
+        await userManager.UpdateSecurityStampAsync(user);
+
+        logger.LogInformation("Password updated!");
     }
 }
