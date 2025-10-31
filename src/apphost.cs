@@ -1,13 +1,13 @@
 ﻿#pragma warning disable
 #:sdk Aspire.AppHost.Sdk@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Azure.AppContainers@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Azure.Redis@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Docker@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Redis@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.SqlServer@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.NodeJs@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Yarp@13.0.0-preview.1.25517.3
-#:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.7.0
+#:package Aspire.Hosting.Azure.AppContainers
+#:package Aspire.Hosting.Azure.Redis
+#:package Aspire.Hosting.Docker
+#:package Aspire.Hosting.Redis
+#:package Aspire.Hosting.SqlServer
+#:package Aspire.Hosting.NodeJs
+#:package Aspire.Hosting.Yarp
+#:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
 #:property UserSecretsId=aspire-samples-bingoboard
