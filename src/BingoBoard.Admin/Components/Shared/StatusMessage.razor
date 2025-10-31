@@ -1,8 +1,15 @@
 @if (!string.IsNullOrEmpty(DisplayMessage))
 {
     var statusMessageClass = DisplayMessage.StartsWith("Error") ? "danger" : "success";
-    <div class="alert alert-@statusMessageClass" role="alert">
-        @DisplayMessage
+    var iconClass = DisplayMessage.StartsWith("Error") ? "fa-exclamation-circle" : "fa-check-circle";
+    <div class="toast-container">
+        <div class="toast-notification alert-@statusMessageClass" role="alert">
+            <i class="fas @iconClass me-2"></i>
+            <span class="flex-grow-1">@DisplayMessage</span>
+            <button type="button" class="toast-dismiss" onclick="this.parentElement.classList.add('dismissed')" aria-label="Dismiss">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
     </div>
 }
 

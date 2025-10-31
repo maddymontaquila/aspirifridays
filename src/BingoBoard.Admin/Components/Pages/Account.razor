@@ -21,32 +21,45 @@
             <p class="text-muted">Manage the admin account.</p>
         </div>
     </div>
-    
-    <form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
-        <AntiforgeryToken />
-        @if (currentPasskeys is { Count: >= MaxPasskeyCount })
-        {
-            <p class="text-danger">You have reached the maximum number of allowed passkeys. Please delete one before adding a new one.</p>
-        }
-        else
-        {
-            <PasskeySubmit Operation="PasskeyOperation.Create" Name="@nameof(SubmittedPasskey)" class="btn btn-primary">Add a new passkey</PasskeySubmit>
-        }
-    </form>
 
-    <!-- Passkeys List Section -->
-    @if (currentPasskeys is { Count: > 0 })
-    {
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-key"></i> Your Passkeys
+    <!-- Passkeys Management Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-key"></i> Your Passkeys
+                        @if (currentPasskeys is not null)
+                        {
                             <span class="badge bg-primary ms-2">@currentPasskeys.Count</span>
-                        </h5>
-                    </div>
-                    <div class="card-body">
+                        }
+                    </h5>
+                    <form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
+                        <AntiforgeryToken />
+                        @if (currentPasskeys is { Count: >= MaxPasskeyCount })
+                        {
+                            <button type="button" class="btn btn-primary btn-sm" disabled title="Maximum passkeys reached">
+                                <i class="fas fa-plus"></i> Add Passkey
+                            </button>
+                        }
+                        else
+                        {
+                            <PasskeySubmit Operation="PasskeyOperation.Create" Name="@nameof(SubmittedPasskey)" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus"></i> Add Passkey
+                            </PasskeySubmit>
+                        }
+                    </form>
+                </div>
+                <div class="card-body">
+                    @if (currentPasskeys is { Count: >= MaxPasskeyCount })
+                    {
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-exclamation-triangle"></i> You have reached the maximum number of allowed passkeys (@MaxPasskeyCount). Please delete one before adding a new one.
+                        </div>
+                    }
+
+                    @if (currentPasskeys is { Count: > 0 })
+                    {
                         <div class="list-group">
                             @foreach (var passkey in currentPasskeys)
                             {
@@ -57,22 +70,27 @@
                                     @if (isRenaming)
                                     {
                                         <!-- Rename Mode -->
-                                        <div class="d-flex align-items-center">
-                                            <form @formname="@($"rename-passkey-{passkeyIdBase64Url}")" @onsubmit="RenamePasskey" method="post">
-                                                <div class="btn-group">
-                                                    <AntiforgeryToken />
-                                                    <input type="hidden" name="edit-id" value="@passkeyIdBase64Url" />
-                                                    <div class="flex-grow-1 me-3">
-                                                        <input type="text" name="edit-value" class="form-control" placeholder="Enter passkey name" />
-                                                    </div>
-                                                    <button type="submit" name="edit-action" value="confirm" class="btn btn-success btn-sm">
-                                                        <i class="fas fa-check"></i> Confirm
-                                                    </button>
-                                                    <button type="submit" name="edit-action" value="cancel" class="btn btn-secondary btn-sm">
-                                                        <i class="fas fa-times"></i> Cancel
-                                                    </button>
+                                        <div class="d-flex flex-column gap-2">
+                                            <form @formname="@($"rename-passkey-{passkeyIdBase64Url}")" @onsubmit="RenamePasskey" method="post" class="d-flex align-items-center gap-2">
+                                                <AntiforgeryToken />
+                                                <input type="hidden" name="edit-id" value="@passkeyIdBase64Url" />
+                                                <div class="flex-grow-1">
+                                                    <input type="text" 
+                                                           name="edit-value" 
+                                                           class="form-control form-control-sm" 
+                                                           placeholder="@(!string.IsNullOrEmpty(passkey.Name) ? passkey.Name : "Enter passkey name")" 
+                                                           value="@passkey.Name" />
                                                 </div>
+                                                <button type="submit" name="edit-action" value="confirm" class="btn btn-success btn-sm">
+                                                    <i class="fas fa-check"></i> Confirm
+                                                </button>
+                                                <button type="submit" name="edit-action" value="cancel" class="btn btn-secondary btn-sm">
+                                                    <i class="fas fa-times"></i> Cancel
+                                                </button>
                                             </form>
+                                            <small class="text-muted">
+                                                Created: @passkey.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")
+                                            </small>
                                         </div>
                                     }
                                     else
@@ -91,41 +109,36 @@
                                                     }
                                                 </h6>
                                                 <small class="text-muted">
-                                                    Created: @passkey.CreatedAt.ToString("MMM dd, yyyy HH:mm")
+                                                    Created: @passkey.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy HH:mm")
                                                 </small>
                                             </div>
                                             <form @formname="@($"edit-passkey-{passkeyIdBase64Url}")" @onsubmit="EditPasskey" method="post">
-                                                <div class="btn-group">
-                                                    <AntiforgeryToken />
-                                                    <input type="hidden" name="edit-id" value="@passkeyIdBase64Url" />
-                                                    <button type="submit" name="edit-action" value="rename" class="btn btn-outline-primary btn-sm">
-                                                        <i class="fas fa-edit"></i> Rename
-                                                    </button>
-                                                    <button type="submit" name="edit-action" value="delete" class="btn btn-outline-danger btn-sm">
-                                                        <i class="fas fa-trash"></i> Delete
-                                                    </button>
-                                                </div>
+                                                <AntiforgeryToken />
+                                                <input type="hidden" name="edit-id" value="@passkeyIdBase64Url" />
+                                                <button type="submit" name="edit-action" value="rename" class="btn btn-outline-primary btn-sm me-2">
+                                                    <i class="fas fa-edit"></i> Rename
+                                                </button>
+                                                <button type="submit" name="edit-action" value="delete" class="btn btn-outline-danger btn-sm">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
                                             </form>
                                         </div>
                                     }
                                 </div>
                             }
                         </div>
-                    </div>
+                    }
+                    else if (currentPasskeys is not null)
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-key fa-3x mb-3"></i>
+                            <p>No passkeys found. Add your first passkey to get started.</p>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
-    }
-    else if (currentPasskeys is not null)
-    {
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> No passkeys found. Add your first passkey to get started.
-                </div>
-            </div>
-        </div>
-    }
+    </div>
 </div>
 
 @code {

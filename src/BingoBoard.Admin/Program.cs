@@ -105,24 +105,62 @@ app.MapPost("/auth/login", async (
     // Read password from form data instead of query parameter
     var form = await context.Request.ReadFormAsync();
     var password = form["password"].ToString();
+    var passkeyCredentialJson = form["passkey.CredentialJson"].ToString();
+    var passkeyError = form["passkey.Error"].ToString();
 
-    logger.LogInformation("Login attempt with password: {Password}", password);
+    logger.LogInformation("Login attempt - Has password: {HasPassword}, Has passkey: {HasPasskey}, Passkey error: {PasskeyError}",
+        !string.IsNullOrEmpty(password),
+        !string.IsNullOrEmpty(passkeyCredentialJson),
+        passkeyError);
 
     var user = await userManager.FindByNameAsync("admin");
     if (user is null)
     {
         logger.LogInformation("Admin user not created.");
-        return Results.Redirect("/login?error=nouser");
+        return Results.Redirect("/login?error=no-user");
     }
 
-    var result = await signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
-    if (result.Succeeded)
+    // Handle passkey errors
+    if (!string.IsNullOrEmpty(passkeyError))
     {
-        logger.LogInformation("Password valid, signing in user");
-        return Results.Redirect("/"); // Redirect to simple test endpoint
+        logger.LogWarning("Passkey error from client: {Error}", passkeyError);
+        return Results.Redirect("/login?error=passkey-error");
     }
 
-    logger.LogInformation("Password invalid, redirecting to login with error");
+    // Try passkey authentication first if passkey credential is provided
+    if (!string.IsNullOrEmpty(passkeyCredentialJson))
+    {
+        logger.LogInformation("Attempting passkey authentication");
+
+        var result = await signInManager.PasskeySignInAsync(passkeyCredentialJson);
+        if (result.Succeeded)
+        {
+            logger.LogInformation("Passkey authenticated succeeded, signing in user");
+            return Results.Redirect("/");
+        }
+
+        logger.LogWarning("Passkey authentication failed");
+        return Results.Redirect("/login?error=passkey-error");
+    }
+
+    // Try password authentication if password is provided
+    if (!string.IsNullOrEmpty(password))
+    {
+        logger.LogInformation("Attempting password authentication");
+
+        var result = await signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
+        if (result.Succeeded)
+        {
+            logger.LogInformation("Password valid, signing in user");
+            return Results.Redirect("/");
+        }
+
+        logger.LogInformation("Password invalid, redirecting to login with error");
+        return Results.Redirect("/login?error=invalid");
+    }
+
+    // No authentication method provided
+    logger.LogInformation("No authentication credentials provided");
     return Results.Redirect("/login?error=invalid");
 });
 

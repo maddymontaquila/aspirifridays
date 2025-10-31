@@ -31,14 +31,23 @@
                     <input id="password" name="password" type="password"
                            class="form-control form-control-lg" 
                            placeholder="Enter admin password" 
-                           required
+                           autocomplete="current-password webauthn"
                            autofocus />
                 </div>
                 
                 <button type="submit" class="btn btn-primary btn-large">
                     <i class="fas fa-sign-in-alt me-2"></i>
-                    <span>Sign In</span>
+                    <span>Sign In with Password</span>
                 </button>
+                
+                <div class="divider">
+                    <span>OR</span>
+                </div>
+                
+                <PasskeySubmit Operation="PasskeyOperation.Request" Name="passkey" class="btn btn-secondary btn-large">
+                    <i class="fas fa-fingerprint me-2"></i>
+                    <span>Sign In with Passkey</span>
+                </PasskeySubmit>
             </form>
         </div>
         
@@ -63,7 +72,8 @@
         errorMessage = Error switch
         {
             "invalid" => "Invalid password. Please try again.",
-            "nouser" => "The user does not exist.",
+            "no-user" => "The user does not exist.",
+            "passkey-error" => "Passkey authentication failed. Please try again.",
             _ => "",
         };
     }
@@ -167,6 +177,27 @@
     .btn-large:disabled {
         opacity: 0.7;
         cursor: not-allowed;
+    }
+
+    .divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        margin: 1.5rem 0;
+        color: #6c757d;
+    }
+
+    .divider::before,
+    .divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .divider span {
+        padding: 0 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
     }
 
     .alert {
