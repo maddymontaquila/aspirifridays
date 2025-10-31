@@ -1,9 +1,9 @@
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Identity;
 using BingoBoard.Admin.Components;
 using BingoBoard.Admin.Hubs;
 using BingoBoard.Admin.Services;
-using Microsoft.AspNetCore.Identity;
 using BingoBoard.Data;
-using Microsoft.AspNetCore.Antiforgery;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -48,4 +48,7 @@ internal sealed class RedirectManager(NavigationManager navigationManager)
 
     public void RedirectToCurrentPageWithStatus(string message, HttpContext context)
         => RedirectToWithStatus(CurrentPath, message, context);
+
+    public void RedirectToLogin()
+        => RedirectTo($"login?returnUrl={Uri.EscapeDataString(CurrentPath)}");
 }

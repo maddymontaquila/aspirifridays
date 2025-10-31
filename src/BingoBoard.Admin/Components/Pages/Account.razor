@@ -1,7 +1,5 @@
 @page "/account"
 @using System.Buffers.Text
-@using Microsoft.CodeAnalysis.Differencing
-@using System.Threading.Tasks
 @attribute [Authorize]
 
 @inject NavigationManager Navigation
@@ -170,7 +168,7 @@
         user = await UserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
-            Navigation.NotFound();
+            Redirect.RedirectToLogin();
             return;
         }
         currentPasskeys = await UserManager.GetPasskeysAsync(user);
@@ -180,7 +178,7 @@
     {
         if (user is null)
         {
-            Navigation.NotFound();
+            Redirect.RedirectToLogin();
             return;
         }
 
@@ -245,7 +243,7 @@
     {
         if (user is null)
         {
-            Navigation.NotFound();
+            Redirect.RedirectToLogin();
             return;
         }
 
@@ -288,7 +286,7 @@
     {
         if (user is null)
         {
-            Navigation.NotFound();
+            Redirect.RedirectToLogin();
             return;
         }
 
