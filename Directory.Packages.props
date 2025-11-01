@@ -12,6 +12,8 @@
     <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.0.0-preview.1.25517.3" />
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="13.0.0-preview.1.25517.3" />
     <PackageVersion Include="Aspire.Hosting.Yarp" Version="13.0.0-preview.1.25517.3" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.0.0-pr.12402.gcf7bd8db" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.0.0-preview.1.25517.3" />
     <!-- Community Toolkit packages -->
     <PackageVersion Include="CommunityToolkit.Aspire.Hosting.NodeJS.Extensions" Version="9.7.0" />
     <!-- Microsoft packages -->
