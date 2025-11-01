@@ -1,14 +1,9 @@
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 
-class AddressResolver
+class AddressResolver(IServer server)
 {
-    public AddressResolver(IServer server)
-    {
-        Address = GetAddress(server);
-    }
-
-    public string Address { get; }
+    public string Address { get; } = GetAddress(server);
 
     private static string GetAddress(IServer server)
     {
