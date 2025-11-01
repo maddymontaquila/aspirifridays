@@ -55,7 +55,10 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
             builder.AddParameter("admin-domain", "admin.aspireify.live"),
             builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301")
         );
-    });
+    })
+    .WithUrlForEndpoint("https", u => u.DisplayText = "Admin UI (https)")
+    .WithUrlForEndpoint("http", u => u.DisplayText = "Admin UI (http)")
+    .WithUrlForEndpoint("https", e => new ResourceUrlAnnotation() { Url = "/scalar", DisplayText = "OpenAPI Docs" });
 
 if (builder.ExecutionContext.IsRunMode)
 {
