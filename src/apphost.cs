@@ -7,6 +7,8 @@
 #:package Aspire.Hosting.SqlServer
 #:package Aspire.Hosting.NodeJs
 #:package Aspire.Hosting.Yarp
+#:package Aspire.Hosting.Maui
+#:package Aspire.Hosting.DevTunnels
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
 #:property UserSecretsId=aspire-samples-bingoboard
