@@ -1,9 +1,9 @@
-using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using BingoBoard.Admin.Components;
+using BingoBoard.Admin.Endpoints;
 using BingoBoard.Admin.Hubs;
 using BingoBoard.Admin.Services;
-using BingoBoard.Data;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +22,9 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 builder.Services.AddAuthorization();
+
+// Configure OpenAPI support
+builder.Services.AddOpenApi();
 
 builder.AddApplicationDbContext();
 
@@ -86,6 +89,12 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
 app.UseStaticFiles();
 app.MapStaticAssets();
 
@@ -101,118 +110,7 @@ app.MapRazorComponents<App>()
 // Map SignalR hub without authentication (anonymous access allowed)
 app.MapHub<BingoHub>("/bingohub");
 
-// Add login and logout endpoints
-app.MapPost("/auth/login", async (
-    HttpContext context,
-    UserManager<ApplicationUser> userManager,
-    SignInManager<ApplicationUser> signInManager,
-    ILogger<Program> logger) =>
-{
-    // Read password from form data instead of query parameter
-    var form = await context.Request.ReadFormAsync();
-    var password = form["password"].ToString();
-    var passkeyCredentialJson = form["passkey.CredentialJson"].ToString();
-    var passkeyError = form["passkey.Error"].ToString();
-
-    logger.LogInformation("Login attempt - Has password: {HasPassword}, Has passkey: {HasPasskey}, Passkey error: {PasskeyError}",
-        !string.IsNullOrEmpty(password),
-        !string.IsNullOrEmpty(passkeyCredentialJson),
-        passkeyError);
-
-    var user = await userManager.FindByNameAsync("admin");
-    if (user is null)
-    {
-        logger.LogInformation("Admin user not created.");
-        return Results.Redirect("/login?error=no-user");
-    }
-
-    // Handle passkey errors
-    if (!string.IsNullOrEmpty(passkeyError))
-    {
-        logger.LogWarning("Passkey error from client: {Error}", passkeyError);
-        return Results.Redirect("/login?error=passkey-error");
-    }
-
-    // Try passkey authentication first if passkey credential is provided
-    if (!string.IsNullOrEmpty(passkeyCredentialJson))
-    {
-        logger.LogInformation("Attempting passkey authentication");
-
-        var result = await signInManager.PasskeySignInAsync(passkeyCredentialJson);
-        if (result.Succeeded)
-        {
-            logger.LogInformation("Passkey authenticated succeeded, signing in user");
-            return Results.Redirect("/");
-        }
-
-        logger.LogWarning("Passkey authentication failed");
-        return Results.Redirect("/login?error=passkey-error");
-    }
-
-    // Try password authentication if password is provided
-    if (!string.IsNullOrEmpty(password))
-    {
-        logger.LogInformation("Attempting password authentication");
-
-        var result = await signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
-        if (result.Succeeded)
-        {
-            logger.LogInformation("Password valid, signing in user");
-            return Results.Redirect("/");
-        }
-
-        logger.LogInformation("Password invalid, redirecting to login with error");
-        return Results.Redirect("/login?error=invalid");
-    }
-
-    // No authentication method provided
-    logger.LogInformation("No authentication credentials provided");
-    return Results.Redirect("/login?error=invalid");
-});
-
-app.MapPost("/auth/logout", async (HttpContext context, SignInManager<ApplicationUser> signInManager) =>
-{
-    await signInManager.SignOutAsync();
-    return Results.Redirect("/login");
-});
-
-app.MapPost("/passkey/creation-options", async (
-    HttpContext context,
-    UserManager<ApplicationUser> userManager,
-    SignInManager<ApplicationUser> signInManager,
-    IAntiforgery antiforgery) =>
-{
-    await antiforgery.ValidateRequestAsync(context);
-
-    var user = await userManager.GetUserAsync(context.User);
-    if (user is null)
-    {
-        return Results.NotFound($"Unable to load user with ID '{userManager.GetUserId(context.User)}'.");
-    }
-
-    var userId = await userManager.GetUserIdAsync(user);
-    var userName = await userManager.GetUserNameAsync(user) ?? "User";
-    var optionsJson = await signInManager.MakePasskeyCreationOptionsAsync(new()
-    {
-        Id = userId,
-        Name = userName,
-        DisplayName = userName
-    });
-    return TypedResults.Content(optionsJson, contentType: "application/json");
-});
-
-app.MapPost("/passkey/request-options", async (
-    HttpContext context,
-    UserManager<ApplicationUser> userManager,
-    SignInManager<ApplicationUser> signInManager,
-    IAntiforgery antiforgery,
-    string? username) =>
-{
-    await antiforgery.ValidateRequestAsync(context);
-
-    var user = string.IsNullOrEmpty(username) ? null : await userManager.FindByNameAsync(username);
-    var optionsJson = await signInManager.MakePasskeyRequestOptionsAsync(user);
-    return TypedResults.Content(optionsJson, contentType: "application/json");
-});
+// Map authentication endpoints
+app.MapAuthenticationEndpoints();
 
 app.Run();
