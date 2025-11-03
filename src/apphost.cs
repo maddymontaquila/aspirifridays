@@ -1,5 +1,5 @@
 ﻿#pragma warning disable
-#:sdk Aspire.AppHost.Sdk@13.0.0-preview.1.25517.3
+#:sdk Aspire.AppHost.Sdk@13.1.0-preview.1.25552.3
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
@@ -7,7 +7,6 @@
 #:package Aspire.Hosting.SqlServer
 #:package Aspire.Hosting.NodeJs
 #:package Aspire.Hosting.Yarp
-#:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
 #:property UserSecretsId=aspire-samples-bingoboard
@@ -63,7 +62,7 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
 if (builder.ExecutionContext.IsRunMode)
 {
     builder.AddViteApp("bingoboard-dev", "./bingo-board")
-        .WithNpmPackageInstallation()
+        .WithNpm(install: true)
         .WithReference(admin)
         .WaitFor(admin)
         .WithIconName("SerialPort");

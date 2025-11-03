@@ -4,16 +4,14 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Aspire packages -->
-    <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.0.0-preview.1.25517.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.0.0-preview.1.25517.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Redis" Version="13.0.0-preview.1.25517.3" />
-    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.0.0-preview.1.25517.3" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.0.0-preview.1.25517.3" />
-    <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.0.0-preview.1.25517.3" />
-    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="13.0.0-preview.1.25517.3" />
-    <PackageVersion Include="Aspire.Hosting.Yarp" Version="13.0.0-preview.1.25517.3" />
-    <!-- Community Toolkit packages -->
-    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.NodeJS.Extensions" Version="9.7.0" />
+    <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.1.0-preview.1.25552.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.1.0-preview.1.25552.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Redis" Version="13.1.0-preview.1.25552.3" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.1.0-preview.1.25552.3" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.1.0-preview.1.25552.3" />
+    <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.1.0-preview.1.25552.3" />
+    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="13.1.0-preview.1.25552.3" />
+    <PackageVersion Include="Aspire.Hosting.Yarp" Version="13.1.0-preview.1.25552.3" />
     <!-- Microsoft packages -->
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="9.0.10" />
