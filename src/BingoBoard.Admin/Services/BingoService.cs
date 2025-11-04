@@ -6,25 +6,81 @@ using System.Text.Json;
 namespace BingoBoard.Admin.Services;
 
 /// <summary>
-/// Implementation of bingo service using Redis for persistence
+/// Implementation of bingo service using Redis for persistence and file for squares
 /// </summary>
-public class BingoService(IDistributedCache cache, ILogger<BingoService> logger, IClientConnectionService clientService) : IBingoService
+public class BingoService(IDistributedCache cache, ILogger<BingoService> logger, IClientConnectionService clientService, IWebHostEnvironment env) : IBingoService
 {
     private static readonly List<BingoSquare> _allSquares = GenerateAllSquares();
+    private static readonly string DataFilePath = "Data/bingo-squares.json";
 
     public async Task<List<BingoSquare>> GetAllSquaresAsync()
     {
-        return await Task.FromResult(_allSquares.ToList());
+        try
+        {
+            // Try to load from file first
+            var filePath = Path.Combine(env.ContentRootPath, DataFilePath);
+            
+            if (File.Exists(filePath))
+            {
+                var json = await File.ReadAllTextAsync(filePath);
+                var fileSquares = JsonSerializer.Deserialize<List<BingoSquareFromFile>>(json, new JsonSerializerOptions 
+                { 
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+                });
+                
+                if (fileSquares != null && fileSquares.Any())
+                {
+                    logger.LogInformation("Loaded {Count} squares from file", fileSquares.Count);
+                    return fileSquares.Select(s => new BingoSquare
+                    {
+                        Id = s.Id,
+                        Label = s.Label,
+                        Type = s.Type ?? "default"
+                    }).ToList();
+                }
+            }
+            
+            // Fallback to static list if file doesn't exist or is empty
+            logger.LogWarning("File not found or empty, falling back to static list");
+            return _allSquares.ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading squares from file, falling back to static list");
+            return _allSquares.ToList();
+        }
+    }
+
+    private record BingoSquareFromFile
+    {
+        public string Id { get; init; } = string.Empty;
+        public string Label { get; init; } = string.Empty;
+        public string? Type { get; init; }
     }
 
     public async Task<BingoSet> GenerateRandomBingoSetAsync(string clientId)
     {
         try
         {
+            // Load all squares from database
+            var allSquares = await GetAllSquaresAsync();
+            
             // Get a random selection of 24 squares plus the free space
             var random = new Random();
-            var freeSpace = _allSquares.First(s => s.Id == "free");
-            var availableSquares = _allSquares.Where(s => s.Id != "free").ToList();
+            var freeSpace = allSquares.FirstOrDefault(s => s.Id == "free");
+            
+            // If no free space exists, create one
+            if (freeSpace == null)
+            {
+                freeSpace = new BingoSquare
+                {
+                    Id = "free",
+                    Label = "Free Space",
+                    Type = "free"
+                };
+            }
+            
+            var availableSquares = allSquares.Where(s => s.Id != "free").ToList();
             var selectedSquares = availableSquares.OrderBy(x => random.Next()).Take(24).ToList();
 
             // Add the free space in the center (position 12)
@@ -50,7 +106,7 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
                 SlidingExpiration = TimeSpan.FromHours(24) // Keep for 24 hours
             });
 
-            logger.LogInformation("Generated new bingo set for client {ClientId}", clientId);
+            logger.LogInformation("Generated new bingo set for client {ClientId} with {Count} total squares", clientId, allSquares.Count);
             return bingoSet;
         }
         catch (Exception ex)

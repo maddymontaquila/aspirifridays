@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Components;
 using BingoBoard.Admin.Components;
 using BingoBoard.Admin.Endpoints;
 using BingoBoard.Admin.Hubs;
@@ -25,6 +26,8 @@ builder.Services.AddAuthorization();
 
 // Configure OpenAPI support
 builder.Services.AddOpenApi();
+// Add validation support
+builder.Services.AddValidation();
 
 builder.AddApplicationDbContext();
 
@@ -67,6 +70,17 @@ builder.Services.AddCors(options =>
 // Register custom services
 builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
+builder.Services.AddScoped<IBingoSquareService, BingoSquareService>();
+
+// Add HttpClient for API calls within the app
+builder.Services.AddScoped(sp => 
+{
+    var httpClient = new HttpClient
+    {
+        BaseAddress = new Uri(sp.GetRequiredService<NavigationManager>().BaseUri)
+    };
+    return httpClient;
+});
 
 // Register background services
 builder.Services.AddHostedService<ApprovalCleanupService>();
@@ -112,5 +126,8 @@ app.MapHub<BingoHub>("/bingohub");
 
 // Map authentication endpoints
 app.MapAuthenticationEndpoints();
+
+// Map bingo square CRUD endpoints
+app.MapBingoSquareCrudEndpoints();
 
 app.Run();
