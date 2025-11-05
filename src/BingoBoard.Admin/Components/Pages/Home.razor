@@ -189,7 +189,8 @@
 
 @code {
     private HubConnection? hubConnection;
-    private List<ConnectedClient> connectedClients = new();
+    [PersistentState]
+    private List<ConnectedClient>? connectedClients;
     private List<ActivityLogEntry> activityLog = new();
     private string? selectedClientId;
     private BingoSet? currentClientBingoSet;
@@ -253,7 +254,7 @@
         });
 
         await hubConnection.StartAsync();
-        await RefreshClients();
+        connectedClients ?? await RefreshClients();
     }
 
     private async Task RefreshClients()
