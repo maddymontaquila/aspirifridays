@@ -1,16 +1,12 @@
 @page "/board-management"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@using BingoBoard.Admin.Models
-@using BingoBoard.Admin.Services
 @using BingoBoard.Admin.Endpoints
 @using Microsoft.AspNetCore.SignalR.Client
-@using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
 @inject IBingoService BingoService
 @inject IBingoSquareService BingoSquareService
 @inject IJSRuntime JSRuntime
-@inject NavigationManager Navigation
 @inject AddressResolver AddressResolver
 @implements IAsyncDisposable
 

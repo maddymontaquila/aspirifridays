@@ -1,15 +1,9 @@
 ﻿@page "/"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@using BingoBoard.Admin.Models
-@using BingoBoard.Admin.Services
-@using Microsoft.AspNetCore.Hosting.Server
-@using Microsoft.AspNetCore.Hosting.Server.Features
 @using Microsoft.AspNetCore.SignalR.Client
 @inject IBingoService BingoService
 @inject IClientConnectionService ClientService
-@inject IJSRuntime JSRuntime
-@inject NavigationManager Navigation
 @inject AddressResolver AddressResolver
 
 @implements IAsyncDisposable
