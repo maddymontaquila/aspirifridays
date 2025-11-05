@@ -206,7 +206,9 @@
         // Initialize SignalR connection
         hubConnection = new HubConnectionBuilder()
             .WithUrl(AddressResolver.Address)
-            .Build();        // Set up event handlers
+            .Build();
+            
+        // Set up event handlers
         hubConnection.On<object>("UserConnected", (data) =>
         {
             _ = InvokeAsync(async () =>
@@ -235,7 +237,9 @@
                     await LoadClientBingoSet();
                 }
             });
-        });        hubConnection.On<object>("BingoAchieved", (data) =>
+        });
+        
+        hubConnection.On<object>("BingoAchieved", (data) =>
         {
             _ = InvokeAsync(() =>
             {
