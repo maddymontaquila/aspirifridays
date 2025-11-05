@@ -1,11 +1,11 @@
-﻿#pragma warning disable
-#:sdk Aspire.AppHost.Sdk@13.1.0-preview.1.25552.3
+#pragma warning disable
+#:sdk Aspire.AppHost.Sdk@13.1.0-pr.12402.g8580283c
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
 #:package Aspire.Hosting.Redis
 #:package Aspire.Hosting.SqlServer
-#:package Aspire.Hosting.NodeJs
+#:package Aspire.Hosting.JavaScript
 #:package Aspire.Hosting.Yarp
 #:package Aspire.Hosting.Maui
 #:package Aspire.Hosting.DevTunnels
