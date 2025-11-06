@@ -1,5 +1,3 @@
-/* Home Component Styles */
-
 .bingo-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -58,36 +56,16 @@
     font-size: 1.2rem;
 }
 
-.square-bug { 
-    border-left: 4px solid #dc3545; 
-}
-
-.square-dev { 
-    border-left: 4px solid #007bff; 
-}
-
-.square-quote { 
-    border-left: 4px solid #6f42c1; 
-}
-
-.square-oops { 
-    border-left: 4px solid #fd7e14; 
-}
-
-.square-meta { 
-    border-left: 4px solid #6c757d; 
-}
-
-.square-free { 
-    border-left: 4px solid #ffc107; 
-    background-color: #fff3cd; 
-}
+.square-bug { border-left: 4px solid #dc3545; }
+.square-dev { border-left: 4px solid #007bff; }
+.square-quote { border-left: 4px solid #6f42c1; }
+.square-oops { border-left: 4px solid #fd7e14; }
+.square-meta { border-left: 4px solid #6c757d; }
+.square-free { border-left: 4px solid #ffc107; background-color: #fff3cd; }
 
 .activity-item {
     padding: 4px 0;
     border-bottom: 1px solid #eee;
-}
-
-.activity-item:last-child {
+}    .activity-item:last-child {
     border-bottom: none;
 }
