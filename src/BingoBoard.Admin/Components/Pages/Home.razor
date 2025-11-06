@@ -78,7 +78,7 @@
                             <h6>Bingo Squares Management</h6>
                             <div class="mb-3">
                                 <label for="clientSelect" class="form-label">Select Client:</label>
-                                <select @bind="selectedClientId" class="form-select" id="clientSelect">
+                                <select @bind="selectedClientConnectionId" class="form-select" id="clientSelect">
                                     <option value="">-- Select a client --</option>
                                     @foreach (var client in ConnectedClients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
                                     {
@@ -90,7 +90,7 @@
                                 </select>
                             </div>
                             
-                            @if (!string.IsNullOrEmpty(selectedClientId))
+                            @if (!string.IsNullOrEmpty(selectedClientConnectionId))
                             {
                                 <button @onclick="LoadClientBingoSet" class="btn btn-primary">
                                     <i class="fas fa-sync-alt"></i> Load Client Board
@@ -116,14 +116,14 @@
     </div>
 
     <!-- Current Client Board Section -->
-    @if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientId))
+    @if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientConnectionId))
     {
         <div class="row mt-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="fas fa-th"></i> Client Board: @selectedClientId?.Substring(0, 8)...
+                            <i class="fas fa-th"></i> Client Board: @selectedClientConnectionId?.Substring(0, 8)...
                             @if (currentClientBingoSet.HasWin)
                             {
                                 <span class="badge bg-success ms-2">BINGO!</span>
@@ -192,7 +192,7 @@
     [PersistentState]
     public List<ConnectedClient>? ConnectedClients { get; set; }
     private List<ActivityLogEntry> activityLog = new();
-    private string? selectedClientId;
+    private string? selectedClientConnectionId;
     private BingoSet? currentClientBingoSet;
 
     public class ActivityLogEntry
@@ -232,7 +232,7 @@
             _ = InvokeAsync(async () =>
             {
                 AddToLog($"Client updated a square");
-                if (currentClientBingoSet != null && selectedClientId != null)
+                if (currentClientBingoSet != null && selectedClientConnectionId != null)
                 {
                     await LoadClientBingoSet();
                 }
@@ -253,7 +253,7 @@
             _ = InvokeAsync(async () =>
             {
                 AddToLog("New bingo set generated for client");
-                if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientId))
+                if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientConnectionId))
                 {
                     await LoadClientBingoSet();
                 }
@@ -285,25 +285,25 @@
 
     private async Task LoadClientBingoSet()
     {
-        if (string.IsNullOrEmpty(selectedClientId)) return;
+        if (string.IsNullOrEmpty(selectedClientConnectionId)) return;
 
         try
         {
             // selectedClientId is a connection ID, we need to get the persistent client ID
-            var persistentClientId = await ClientService.GetPersistentClientIdAsync(selectedClientId);
+            var persistentClientId = await ClientService.GetPersistentClientIdAsync(selectedClientConnectionId);
 
             if (string.IsNullOrEmpty(persistentClientId))
             {
-                AddToLog($"No persistent client ID found for connection {selectedClientId.Substring(0, 8)}...");
+                AddToLog($"No persistent client ID found for connection {selectedClientConnectionId.Substring(0, 8)}...");
                 return;
             }
 
             currentClientBingoSet = await BingoService.GetClientBingoSetAsync(persistentClientId);
             StateHasChanged();
-            AddToLog($"Loaded bingo set for client {selectedClientId.Substring(0, 8)}... (persistent ID: {persistentClientId.Substring(0, 8)}...)");
+            AddToLog($"Loaded bingo set for client {selectedClientConnectionId.Substring(0, 8)}... (persistent ID: {persistentClientId.Substring(0, 8)}...)");
             if (currentClientBingoSet is null)
             {
-                AddToLog($"Client {selectedClientId} has no bingo set assigned.");
+                AddToLog($"Client {selectedClientConnectionId} has no bingo set assigned.");
             }
         }
         catch (Exception ex)
@@ -314,11 +314,11 @@
 
     private async Task ToggleSquare(string squareId, bool isChecked)
     {
-        if (string.IsNullOrEmpty(selectedClientId) || hubConnection == null) return;
+        if (string.IsNullOrEmpty(selectedClientConnectionId) || hubConnection == null) return;
 
         try
         {
-            await hubConnection.SendAsync("AdminUpdateSquare", selectedClientId, squareId, isChecked);
+            await hubConnection.SendAsync("AdminUpdateSquare", selectedClientConnectionId, squareId, isChecked);
             AddToLog($"Admin updated square {squareId} to {(isChecked ? "checked" : "unchecked")}");
             
             // Refresh the current board
