@@ -24,14 +24,14 @@
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-users"></i> Connected Clients
-                        <span class="badge bg-primary ms-2">@connectedClients.Count</span>
+                        <span class="badge bg-primary ms-2">@ConnectedClients.Count</span>
                     </h5>
                 </div>
                 <div class="card-body">
-                    @if (connectedClients.Any())
+                    @if (ConnectedClients.Any())
                     {
                         <div class="list-group">
-                            @foreach (var client in connectedClients)
+                            @foreach (var client in ConnectedClients)
                             {
                                 <div class="list-group-item d-flex justify-content-between align-items-center">
                                     <div>
@@ -80,7 +80,7 @@
                                 <label for="clientSelect" class="form-label">Select Client:</label>
                                 <select @bind="selectedClientId" class="form-select" id="clientSelect">
                                     <option value="">-- Select a client --</option>
-                                    @foreach (var client in connectedClients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
+                                    @foreach (var client in ConnectedClients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
                                     {
                                         <option value="@client.ConnectionId">
                                             @client.ConnectionId.Substring(0, 8)... 
@@ -116,7 +116,7 @@
     </div>
 
     <!-- Current Client Board Section -->
-    @if (currentClientBingoSet != null)
+    @if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientId))
     {
         <div class="row mt-4">
             <div class="col-12">
@@ -190,7 +190,7 @@
 @code {
     private HubConnection? hubConnection;
     [PersistentState]
-    private List<ConnectedClient>? connectedClients;
+    public List<ConnectedClient>? ConnectedClients { get; set; }
     private List<ActivityLogEntry> activityLog = new();
     private string? selectedClientId;
     private BingoSet? currentClientBingoSet;
@@ -253,19 +253,28 @@
             _ = InvokeAsync(async () =>
             {
                 AddToLog("New bingo set generated for client");
+                if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientId))
+                {
+                    await LoadClientBingoSet();
+                }
                 await RefreshClients();
             });
         });
 
+        if (ConnectedClients is null)
+        {
+            ConnectedClients = new();
+            await RefreshClients();
+        }
+
         await hubConnection.StartAsync();
-        connectedClients ?? await RefreshClients();
     }
 
     private async Task RefreshClients()
     {
         try
         {
-            connectedClients = await ClientService.GetAllClientsAsync();
+            ConnectedClients = await ClientService.GetAllClientsAsync();
             StateHasChanged();
         }
         catch (Exception ex)
@@ -280,9 +289,22 @@
 
         try
         {
-            currentClientBingoSet = await BingoService.GetClientBingoSetAsync(selectedClientId);
+            // selectedClientId is a connection ID, we need to get the persistent client ID
+            var persistentClientId = await ClientService.GetPersistentClientIdAsync(selectedClientId);
+
+            if (string.IsNullOrEmpty(persistentClientId))
+            {
+                AddToLog($"No persistent client ID found for connection {selectedClientId.Substring(0, 8)}...");
+                return;
+            }
+
+            currentClientBingoSet = await BingoService.GetClientBingoSetAsync(persistentClientId);
             StateHasChanged();
-            AddToLog($"Loaded bingo set for client {selectedClientId.Substring(0, 8)}...");
+            AddToLog($"Loaded bingo set for client {selectedClientId.Substring(0, 8)}... (persistent ID: {persistentClientId.Substring(0, 8)}...)");
+            if (currentClientBingoSet is null)
+            {
+                AddToLog($"Client {selectedClientId} has no bingo set assigned.");
+            }
         }
         catch (Exception ex)
         {
