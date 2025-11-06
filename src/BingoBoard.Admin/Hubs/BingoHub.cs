@@ -79,6 +79,14 @@ public class BingoHub(
                 // Send the existing bingo set to the client
                 await Clients.Caller.SendAsync("ExistingBingoSetReceived", bingoSet);
 
+                await Clients.Others.SendAsync("ClientBingoSetUpdated", new
+                {
+                    ConnectionId = connectionId,
+                    BingoSetId = bingoSet.Id,
+                    UserName = userName,
+                    Timestamp = DateTime.UtcNow
+                });
+
                 logger.LogInformation("Sent existing bingo set {BingoSetId} to client {ConnectionId} for persistent ID {PersistentClientId}", 
                     bingoSet.Id, connectionId, clientId);
             }

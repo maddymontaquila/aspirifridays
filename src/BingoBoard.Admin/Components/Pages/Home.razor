@@ -261,6 +261,15 @@
             });
         });
 
+        hubConnection.On<object>("ClientBingoSetUpdated", (data) =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                AddToLog("Bingo set updated for client");
+                await RefreshClients();
+            });
+        });
+
         if (ConnectedClients is null)
         {
             ConnectedClients = new();
