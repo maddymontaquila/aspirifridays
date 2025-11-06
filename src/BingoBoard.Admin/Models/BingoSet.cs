@@ -11,7 +11,7 @@ public class BingoSet
     public string Id { get; set; } = Guid.NewGuid().ToString();
 
     /// <summary>
-    /// Client connection ID this set belongs to
+    /// Client this set belongs to
     /// </summary>
     public string ClientId { get; set; } = string.Empty;
 
