@@ -66,6 +66,8 @@
 .activity-item {
     padding: 4px 0;
     border-bottom: 1px solid #eee;
-}    .activity-item:last-child {
+}
+
+.activity-item:last-child {
     border-bottom: none;
 }
