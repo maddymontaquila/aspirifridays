@@ -83,11 +83,6 @@ public interface IBingoService
     Task CleanupExpiredApprovalsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Update the connection ID for an existing client's bingo set
-    /// </summary>
-    Task<bool> UpdateClientConnectionAsync(string oldClientId, string newClientId);
-
-    /// <summary>
     /// Set the live mode state (true for live stream, false for free play)
     /// </summary>
     Task SetLiveModeAsync(bool isLiveMode);

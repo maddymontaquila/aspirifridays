@@ -276,10 +276,15 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
 
             foreach (var client in clients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
             {
-                var bingoSet = await GetClientBingoSetAsync(client.ConnectionId);
-                if (bingoSet != null)
+                // Get the persistent client ID for this connection
+                var persistentClientId = await clientService.GetPersistentClientIdAsync(client.ConnectionId);
+                if (!string.IsNullOrEmpty(persistentClientId))
                 {
-                    bingoSets.Add(bingoSet);
+                    var bingoSet = await GetClientBingoSetAsync(persistentClientId);
+                    if (bingoSet != null)
+                    {
+                        bingoSets.Add(bingoSet);
+                    }
                 }
             }
 
@@ -306,7 +311,12 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
             // Update all client bingo sets that contain this square
             foreach (var client in clients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
             {
-                updateTasks.Add(UpdateSquareStatusAsync(client.ConnectionId, squareId, isChecked));
+                // Get the persistent client ID for this connection
+                var persistentClientId = await clientService.GetPersistentClientIdAsync(client.ConnectionId);
+                if (!string.IsNullOrEmpty(persistentClientId))
+                {
+                    updateTasks.Add(UpdateSquareStatusAsync(persistentClientId, squareId, isChecked));
+                }
             }
 
             var results = await Task.WhenAll(updateTasks);
@@ -640,39 +650,6 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
         catch (Exception ex)
         {
             logger.LogError(ex, "Error cleaning up expired approvals");
-        }
-    }
-
-    public async Task<bool> UpdateClientConnectionAsync(string oldClientId, string newClientId)
-    {
-        try
-        {
-            // Get the existing bingo set
-            var bingoSet = await GetClientBingoSetAsync(oldClientId);
-            if (bingoSet == null) return false;
-
-            // Don't change the ClientId - keep it as the persistent client ID
-            // Just update the timestamp
-            bingoSet.LastUpdated = DateTime.UtcNow;
-
-            // Store under the same persistent client ID (the cache key doesn't change)
-            var cacheKey = $"bingo_set_{oldClientId}";
-            var serializedSet = JsonSerializer.Serialize(bingoSet);
-            await cache.SetStringAsync(cacheKey, serializedSet, new DistributedCacheEntryOptions
-            {
-                SlidingExpiration = TimeSpan.FromHours(24)
-            });
-
-            logger.LogInformation("Updated timestamp for persistent client {PersistentClientId} with new connection {NewConnectionId}",
-                oldClientId, newClientId);
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error updating client connection for persistent client {PersistentClientId} with new connection {NewConnectionId}",
-                oldClientId, newClientId);
-            return false;
         }
     }
 

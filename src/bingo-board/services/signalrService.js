@@ -154,13 +154,13 @@ export class SignalRService {
   /**
    * Request a new bingo set from the server
    */
-  async requestBingoSet(userName = null) {
+  async requestBingoSet(persistentClientId = null, userName = null) {
     if (!this.isConnected || !this.connection) {
       throw new Error('Not connected to SignalR hub')
     }
     
     try {
-      await this.connection.invoke('RequestBingoSet', userName)
+      await this.connection.invoke('RequestBingoSet', persistentClientId, userName)
     } catch (error) {
       console.error('Failed to request bingo set:', error)
       throw error

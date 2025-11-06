@@ -1,15 +1,9 @@
 ﻿@page "/"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@using BingoBoard.Admin.Models
-@using BingoBoard.Admin.Services
-@using Microsoft.AspNetCore.Hosting.Server
-@using Microsoft.AspNetCore.Hosting.Server.Features
 @using Microsoft.AspNetCore.SignalR.Client
 @inject IBingoService BingoService
 @inject IClientConnectionService ClientService
-@inject IJSRuntime JSRuntime
-@inject NavigationManager Navigation
 @inject AddressResolver AddressResolver
 
 @implements IAsyncDisposable
@@ -30,14 +24,14 @@
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-users"></i> Connected Clients
-                        <span class="badge bg-primary ms-2">@connectedClients.Count</span>
+                        <span class="badge bg-primary ms-2">@ConnectedClients.Count</span>
                     </h5>
                 </div>
                 <div class="card-body">
-                    @if (connectedClients.Any())
+                    @if (ConnectedClients.Any())
                     {
                         <div class="list-group">
-                            @foreach (var client in connectedClients)
+                            @foreach (var client in ConnectedClients)
                             {
                                 <div class="list-group-item d-flex justify-content-between align-items-center">
                                     <div>
@@ -84,9 +78,9 @@
                             <h6>Bingo Squares Management</h6>
                             <div class="mb-3">
                                 <label for="clientSelect" class="form-label">Select Client:</label>
-                                <select @bind="selectedClientId" class="form-select" id="clientSelect">
+                                <select @bind="selectedClientConnectionId" class="form-select" id="clientSelect">
                                     <option value="">-- Select a client --</option>
-                                    @foreach (var client in connectedClients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
+                                    @foreach (var client in ConnectedClients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
                                     {
                                         <option value="@client.ConnectionId">
                                             @client.ConnectionId.Substring(0, 8)... 
@@ -96,7 +90,7 @@
                                 </select>
                             </div>
                             
-                            @if (!string.IsNullOrEmpty(selectedClientId))
+                            @if (!string.IsNullOrEmpty(selectedClientConnectionId))
                             {
                                 <button @onclick="LoadClientBingoSet" class="btn btn-primary">
                                     <i class="fas fa-sync-alt"></i> Load Client Board
@@ -122,14 +116,14 @@
     </div>
 
     <!-- Current Client Board Section -->
-    @if (currentClientBingoSet != null)
+    @if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientConnectionId))
     {
         <div class="row mt-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="fas fa-th"></i> Client Board: @selectedClientId?.Substring(0, 8)...
+                            <i class="fas fa-th"></i> Client Board: @selectedClientConnectionId?.Substring(0, 8)...
                             @if (currentClientBingoSet.HasWin)
                             {
                                 <span class="badge bg-success ms-2">BINGO!</span>
@@ -195,9 +189,10 @@
 
 @code {
     private HubConnection? hubConnection;
-    private List<ConnectedClient> connectedClients = new();
+    [PersistentState]
+    public List<ConnectedClient>? ConnectedClients { get; set; }
     private List<ActivityLogEntry> activityLog = new();
-    private string? selectedClientId;
+    private string? selectedClientConnectionId;
     private BingoSet? currentClientBingoSet;
 
     public class ActivityLogEntry
@@ -211,7 +206,9 @@
         // Initialize SignalR connection
         hubConnection = new HubConnectionBuilder()
             .WithUrl(AddressResolver.Address)
-            .Build();        // Set up event handlers
+            .Build();
+            
+        // Set up event handlers
         hubConnection.On<object>("UserConnected", (data) =>
         {
             _ = InvokeAsync(async () =>
@@ -235,12 +232,14 @@
             _ = InvokeAsync(async () =>
             {
                 AddToLog($"Client updated a square");
-                if (currentClientBingoSet != null && selectedClientId != null)
+                if (currentClientBingoSet != null && selectedClientConnectionId != null)
                 {
                     await LoadClientBingoSet();
                 }
             });
-        });        hubConnection.On<object>("BingoAchieved", (data) =>
+        });
+        
+        hubConnection.On<object>("BingoAchieved", (data) =>
         {
             _ = InvokeAsync(() =>
             {
@@ -254,19 +253,37 @@
             _ = InvokeAsync(async () =>
             {
                 AddToLog("New bingo set generated for client");
+                if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientConnectionId))
+                {
+                    await LoadClientBingoSet();
+                }
                 await RefreshClients();
             });
         });
 
+        hubConnection.On<object>("ClientBingoSetUpdated", (data) =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                AddToLog("Bingo set updated for client");
+                await RefreshClients();
+            });
+        });
+
+        if (ConnectedClients is null)
+        {
+            ConnectedClients = new();
+            await RefreshClients();
+        }
+
         await hubConnection.StartAsync();
-        await RefreshClients();
     }
 
     private async Task RefreshClients()
     {
         try
         {
-            connectedClients = await ClientService.GetAllClientsAsync();
+            ConnectedClients = await ClientService.GetAllClientsAsync();
             StateHasChanged();
         }
         catch (Exception ex)
@@ -277,13 +294,26 @@
 
     private async Task LoadClientBingoSet()
     {
-        if (string.IsNullOrEmpty(selectedClientId)) return;
+        if (string.IsNullOrEmpty(selectedClientConnectionId)) return;
 
         try
         {
-            currentClientBingoSet = await BingoService.GetClientBingoSetAsync(selectedClientId);
+            // selectedClientId is a connection ID, we need to get the persistent client ID
+            var persistentClientId = await ClientService.GetPersistentClientIdAsync(selectedClientConnectionId);
+
+            if (string.IsNullOrEmpty(persistentClientId))
+            {
+                AddToLog($"No persistent client ID found for connection {selectedClientConnectionId.Substring(0, 8)}...");
+                return;
+            }
+
+            currentClientBingoSet = await BingoService.GetClientBingoSetAsync(persistentClientId);
             StateHasChanged();
-            AddToLog($"Loaded bingo set for client {selectedClientId.Substring(0, 8)}...");
+            AddToLog($"Loaded bingo set for client {selectedClientConnectionId.Substring(0, 8)}... (persistent ID: {persistentClientId.Substring(0, 8)}...)");
+            if (currentClientBingoSet is null)
+            {
+                AddToLog($"Client {selectedClientConnectionId} has no bingo set assigned.");
+            }
         }
         catch (Exception ex)
         {
@@ -293,11 +323,11 @@
 
     private async Task ToggleSquare(string squareId, bool isChecked)
     {
-        if (string.IsNullOrEmpty(selectedClientId) || hubConnection == null) return;
+        if (string.IsNullOrEmpty(selectedClientConnectionId) || hubConnection == null) return;
 
         try
         {
-            await hubConnection.SendAsync("AdminUpdateSquare", selectedClientId, squareId, isChecked);
+            await hubConnection.SendAsync("AdminUpdateSquare", selectedClientConnectionId, squareId, isChecked);
             AddToLog($"Admin updated square {squareId} to {(isChecked ? "checked" : "unchecked")}");
             
             // Refresh the current board
@@ -370,77 +400,3 @@
         }
     }
 }
-
-<style>
-    .bingo-grid {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 2px;
-        max-width: 800px;
-        margin: 0 auto;
-    }
-
-    .bingo-square {
-        aspect-ratio: 1;
-        border: 2px solid #dee2e6;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-        background-color: #f8f9fa;
-        min-height: 100px;
-    }
-
-    .bingo-square:hover {
-        border-color: #007bff;
-        transform: scale(1.02);
-    }
-
-    .bingo-square.checked {
-        background-color: #d4edda;
-        border-color: #28a745;
-    }
-
-    .square-content {
-        text-align: center;
-        padding: 8px;
-        position: relative;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .square-text {
-        font-size: 0.85rem;
-        font-weight: 500;
-        line-height: 1.2;
-        word-break: break-word;
-    }
-
-    .check-mark {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        color: #28a745;
-        font-size: 1.2rem;
-    }
-
-    .square-bug { border-left: 4px solid #dc3545; }
-    .square-dev { border-left: 4px solid #007bff; }
-    .square-quote { border-left: 4px solid #6f42c1; }
-    .square-oops { border-left: 4px solid #fd7e14; }
-    .square-meta { border-left: 4px solid #6c757d; }
-    .square-free { border-left: 4px solid #ffc107; background-color: #fff3cd; }
-
-    .activity-item {
-        padding: 4px 0;
-        border-bottom: 1px solid #eee;
-    }    .activity-item:last-child {
-        border-bottom: none;
-    }
-</style>
