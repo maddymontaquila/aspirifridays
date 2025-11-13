@@ -15,15 +15,19 @@ public class BingoHub(
     /// <summary>
     /// Client requests a new bingo set
     /// </summary>
-    public async Task RequestBingoSet(string? userName = null)
+    public async Task RequestBingoSet(string clientId, string? userName = null)
     {
         try
         {
             var connectionId = Context.ConnectionId;
-            logger.LogInformation("Client {ConnectionId} requested a new bingo set", connectionId);
+            logger.LogInformation("Client {ConnectionId} requested a new bingo set with persistent ID {PersistentClientId}",
+                connectionId, clientId);
 
-            // Generate a new bingo set for the client
-            var bingoSet = await bingoService.GenerateRandomBingoSetAsync(connectionId);
+            // Generate a new bingo set for the client using the persistent client ID
+            var bingoSet = await bingoService.GenerateRandomBingoSetAsync(clientId);
+
+            // Map this connection to the persistent client ID
+            await clientService.MapConnectionToPersistentClientAsync(connectionId, clientId);
             
             // Associate the bingo set with the client
             await clientService.AssociateBingoSetAsync(connectionId, bingoSet.Id);
@@ -53,21 +57,21 @@ public class BingoHub(
     /// <summary>
     /// Client requests their existing bingo set using a persistent client ID
     /// </summary>
-    public async Task RequestExistingBingoSet(string persistentClientId, string? userName = null)
+    public async Task RequestExistingBingoSet(string clientId, string? userName = null)
     {
         try
         {
             var connectionId = Context.ConnectionId;
             logger.LogInformation("Client {ConnectionId} requested existing bingo set for persistent ID {PersistentClientId}", 
-                connectionId, persistentClientId);
+                connectionId, clientId);
 
             // Try to get the existing bingo set
-            var bingoSet = await bingoService.GetClientBingoSetAsync(persistentClientId);
+            var bingoSet = await bingoService.GetClientBingoSetAsync(clientId);
             
             if (bingoSet != null)
             {
                 // Map the connection ID to the persistent client ID
-                await clientService.MapConnectionToPersistentClientAsync(connectionId, persistentClientId);
+                await clientService.MapConnectionToPersistentClientAsync(connectionId, clientId);
                 
                 // Update the connection mapping for this persistent client
                 await clientService.AssociateBingoSetAsync(connectionId, bingoSet.Id);
@@ -75,19 +79,27 @@ public class BingoHub(
                 // Send the existing bingo set to the client
                 await Clients.Caller.SendAsync("ExistingBingoSetReceived", bingoSet);
 
+                await Clients.Others.SendAsync("ClientBingoSetUpdated", new
+                {
+                    ConnectionId = connectionId,
+                    BingoSetId = bingoSet.Id,
+                    UserName = userName,
+                    Timestamp = DateTime.UtcNow
+                });
+
                 logger.LogInformation("Sent existing bingo set {BingoSetId} to client {ConnectionId} for persistent ID {PersistentClientId}", 
-                    bingoSet.Id, connectionId, persistentClientId);
+                    bingoSet.Id, connectionId, clientId);
             }
             else
             {
                 // No existing set found, create a new one but use the persistent client ID
                 logger.LogInformation("No existing bingo set found for {PersistentClientId}, creating new one", 
-                    persistentClientId);
+                    clientId);
                 
                 // Map the connection ID to the persistent client ID
-                await clientService.MapConnectionToPersistentClientAsync(connectionId, persistentClientId);
+                await clientService.MapConnectionToPersistentClientAsync(connectionId, clientId);
                 
-                var newBingoSet = await bingoService.GenerateRandomBingoSetAsync(persistentClientId);
+                var newBingoSet = await bingoService.GenerateRandomBingoSetAsync(clientId);
                 
                 // Associate with current connection
                 await clientService.AssociateBingoSetAsync(connectionId, newBingoSet.Id);
@@ -95,13 +107,22 @@ public class BingoHub(
                 // Send the new bingo set
                 await Clients.Caller.SendAsync("BingoSetReceived", newBingoSet);
 
+                // Notify admin of new client with bingo set
+                await Clients.Others.SendAsync("ClientBingoSetGenerated", new
+                {
+                    ConnectionId = connectionId,
+                    BingoSetId = newBingoSet.Id,
+                    UserName = userName,
+                    Timestamp = DateTime.UtcNow
+                });
+
                 logger.LogInformation("Sent new bingo set {BingoSetId} to client {ConnectionId} with persistent ID {PersistentClientId}", 
-                    newBingoSet.Id, connectionId, persistentClientId);
+                    newBingoSet.Id, connectionId, clientId);
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error retrieving/creating bingo set for persistent client {PersistentClientId}", persistentClientId);
+            logger.LogError(ex, "Error retrieving/creating bingo set for persistent client {PersistentClientId}", clientId);
             await Clients.Caller.SendAsync("Error", "Failed to retrieve or create bingo set");
         }
     }
@@ -109,12 +130,12 @@ public class BingoHub(
     /// <summary>
     /// Admin updates a square status for a specific client
     /// </summary>
-    public async Task AdminUpdateSquare(string clientId, string squareId, bool isChecked)
+    public async Task AdminUpdateSquare(string connectionId, string squareId, bool isChecked)
     {
         try
         {
-            logger.LogInformation("Admin updating square {SquareId} to {Status} for client {ClientId}", 
-                squareId, isChecked, clientId);
+            var clientId = await clientService.GetPersistentClientIdAsync(connectionId);
+            if (string.IsNullOrEmpty(clientId)) return;
 
             var success = await bingoService.UpdateSquareStatusAsync(clientId, squareId, isChecked);
             
@@ -122,16 +143,6 @@ public class BingoHub(
             {
                 // Check for win condition
                 var hasWin = await bingoService.CheckForWinAsync(clientId);
-
-                // The clientId parameter might be either a persistent client ID or connection ID
-                // Try to get connection ID first (assuming it's a persistent client ID)
-                var connectionId = await clientService.GetConnectionIdFromPersistentClientAsync(clientId);
-                
-                if (string.IsNullOrEmpty(connectionId))
-                {
-                    // If no mapping found, assume clientId is already a connection ID
-                    connectionId = clientId;
-                }
 
                 // Notify the specific client about the update
                 await Clients.Client(connectionId).SendAsync("SquareUpdated", new 
@@ -298,8 +309,18 @@ public class BingoHub(
         try
         {
             var connectionId = Context.ConnectionId;
-            var bingoSet = await bingoService.GetClientBingoSetAsync(connectionId);
-            
+
+            // Get the persistent client ID for this connection
+            var persistentClientId = await clientService.GetPersistentClientIdAsync(connectionId);
+            if (string.IsNullOrEmpty(persistentClientId))
+            {
+                // No persistent client ID found, client needs to request a new bingo set first
+                await Clients.Caller.SendAsync("NoBingoSet");
+                return;
+            }
+
+            var bingoSet = await bingoService.GetClientBingoSetAsync(persistentClientId);
+
             if (bingoSet != null)
             {
                 await Clients.Caller.SendAsync("CurrentBingoSet", bingoSet);
