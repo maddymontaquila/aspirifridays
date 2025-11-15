@@ -110,20 +110,24 @@ var mauiapp = builder.AddMauiProject("mauiapp", @"BingoBoard.MauiHybrid/BingoBoa
 
 // Add iOS simulator with default simulator (uses running or default simulator)
 var ios = mauiapp.AddiOSSimulator()
+    .ExcludeFromManifest()
     .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
     .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
 
 // Add Android emulator with default emulator (uses running or default emulator)
 mauiapp.AddAndroidEmulator()
+    .ExcludeFromManifest()
     .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
     .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
 
 // Add Mac Catalyst desktop
 mauiapp.AddMacCatalystDevice()
+    .ExcludeFromManifest()
     .WithReference(admin);
 
 // Add Windows desktop
 mauiapp.AddWindowsDevice()
+    .ExcludeFromManifest()
     .WithReference(admin);
 
 builder.Build().Run();
