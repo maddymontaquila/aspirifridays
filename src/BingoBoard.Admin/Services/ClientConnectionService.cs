@@ -11,9 +11,11 @@ namespace BingoBoard.Admin.Services;
 public class ClientConnectionService(IDistributedCache cache, ILogger<ClientConnectionService> logger) : IClientConnectionService
 {
     private const string ClientsKey = "connected_clients";
+    private static readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public async Task AddClientAsync(ConnectedClient client)
         {
+            await _semaphore.WaitAsync();
             try
             {
                 var clients = await GetAllClientsAsync();
@@ -34,10 +36,15 @@ public class ClientConnectionService(IDistributedCache cache, ILogger<ClientConn
                 logger.LogError(ex, "Error adding client {ConnectionId}", client.ConnectionId);
                 throw;
             }
+            finally
+            {
+                _semaphore.Release();
+            }
         }
 
         public async Task RemoveClientAsync(string connectionId)
         {
+            await _semaphore.WaitAsync();
             try
             {
                 // First, get the persistent client ID to clean up reverse mapping
@@ -67,6 +74,10 @@ public class ClientConnectionService(IDistributedCache cache, ILogger<ClientConn
             {
                 logger.LogError(ex, "Error removing client {ConnectionId}", connectionId);
                 throw;
+            }
+            finally
+            {
+                _semaphore.Release();
             }
         }
 
@@ -105,6 +116,7 @@ public class ClientConnectionService(IDistributedCache cache, ILogger<ClientConn
 
         public async Task UpdateClientActivityAsync(string connectionId)
         {
+            await _semaphore.WaitAsync();
             try
             {
                 var clients = await GetAllClientsAsync();
@@ -120,10 +132,15 @@ public class ClientConnectionService(IDistributedCache cache, ILogger<ClientConn
             {
                 logger.LogError(ex, "Error updating activity for client {ConnectionId}", connectionId);
             }
+            finally
+            {
+                _semaphore.Release();
+            }
         }
 
         public async Task AssociateBingoSetAsync(string connectionId, string bingoSetId)
         {
+            await _semaphore.WaitAsync();
             try
             {
                 var clients = await GetAllClientsAsync();
@@ -142,6 +159,10 @@ public class ClientConnectionService(IDistributedCache cache, ILogger<ClientConn
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error associating bingo set with client {ConnectionId}", connectionId);
+            }
+            finally
+            {
+                _semaphore.Release();
             }
         }
 

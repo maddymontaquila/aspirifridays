@@ -1,4 +1,6 @@
 // Canvas drawing utilities for bingo board image generation
+import aspireLogo from '../assets/aspire-logo-256.png';
+
 export class BingoImageGenerator {
   constructor(currentBoard, bingoLines, isPartOfBingo) {
     this.currentBoard = currentBoard;
@@ -95,7 +97,7 @@ export class BingoImageGenerator {
           clearTimeout(timeout);
           reject(new Error('Logo load failed'));
         };
-        img.src = '/assets/aspire-logo-256.png';
+        img.src = aspireLogo;
       });
       return img;
     } catch (error) {
@@ -254,13 +256,22 @@ export class BingoImageGenerator {
   }
 
   downloadCanvas(canvas) {
+    // Check if we're in a HybridWebView by looking for the HybridWebView object
+    if (typeof window.HybridWebView !== 'undefined') {
+      // In HybridWebView, ask the app to display the image
+      return new Promise((resolve, reject) => {
+        const data = canvas.toDataURL('image/png');
+        window.HybridWebView.InvokeDotNet('DownloadBoard', data);
+      });
+    }
+    
     return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (!blob) {
           reject(new Error('Failed to create blob from canvas'));
           return;
         }
-        
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

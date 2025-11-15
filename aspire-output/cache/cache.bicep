@@ -24,6 +24,9 @@ resource cache 'Microsoft.App/containerApps@2025-01-01' = {
         external: false
         targetPort: 6379
         transport: 'tcp'
+        stickySessions: {
+          affinity: 'sticky'
+        }
       }
     }
     environmentId: env_outputs_azure_container_apps_environment_id
@@ -49,6 +52,7 @@ resource cache 'Microsoft.App/containerApps@2025-01-01' = {
       ]
       scale: {
         minReplicas: 1
+        maxReplicas: 1
       }
     }
   }

@@ -1,8 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/BingoBoard.Admin/BingoBoard.Admin.csproj" />
-    <Project Path="src/BingoBoard.Data/BingoBoard.Data.csproj" />
-    <Project Path="src/BingoBoard.MigrationService/BingoBoard.MigrationService.csproj" />
-    <Project Path="src/BingoBoard.ServiceDefaults/BingoBoard.ServiceDefaults.csproj" />
-  </Folder>
-</Solution>

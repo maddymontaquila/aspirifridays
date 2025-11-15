@@ -6,25 +6,81 @@ using System.Text.Json;
 namespace BingoBoard.Admin.Services;
 
 /// <summary>
-/// Implementation of bingo service using Redis for persistence
+/// Implementation of bingo service using Redis for persistence and file for squares
 /// </summary>
-public class BingoService(IDistributedCache cache, ILogger<BingoService> logger, IClientConnectionService clientService) : IBingoService
+public class BingoService(IDistributedCache cache, ILogger<BingoService> logger, IClientConnectionService clientService, IWebHostEnvironment env) : IBingoService
 {
     private static readonly List<BingoSquare> _allSquares = GenerateAllSquares();
+    private static readonly string DataFilePath = "Data/bingo-squares.json";
 
     public async Task<List<BingoSquare>> GetAllSquaresAsync()
     {
-        return await Task.FromResult(_allSquares.ToList());
+        try
+        {
+            // Try to load from file first
+            var filePath = Path.Combine(env.ContentRootPath, DataFilePath);
+            
+            if (File.Exists(filePath))
+            {
+                var json = await File.ReadAllTextAsync(filePath);
+                var fileSquares = JsonSerializer.Deserialize<List<BingoSquareFromFile>>(json, new JsonSerializerOptions 
+                { 
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+                });
+                
+                if (fileSquares != null && fileSquares.Any())
+                {
+                    logger.LogInformation("Loaded {Count} squares from file", fileSquares.Count);
+                    return fileSquares.Select(s => new BingoSquare
+                    {
+                        Id = s.Id,
+                        Label = s.Label,
+                        Type = s.Type ?? "default"
+                    }).ToList();
+                }
+            }
+            
+            // Fallback to static list if file doesn't exist or is empty
+            logger.LogWarning("File not found or empty, falling back to static list");
+            return _allSquares.ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading squares from file, falling back to static list");
+            return _allSquares.ToList();
+        }
+    }
+
+    private record BingoSquareFromFile
+    {
+        public string Id { get; init; } = string.Empty;
+        public string Label { get; init; } = string.Empty;
+        public string? Type { get; init; }
     }
 
     public async Task<BingoSet> GenerateRandomBingoSetAsync(string clientId)
     {
         try
         {
+            // Load all squares from database
+            var allSquares = await GetAllSquaresAsync();
+            
             // Get a random selection of 24 squares plus the free space
             var random = new Random();
-            var freeSpace = _allSquares.First(s => s.Id == "free");
-            var availableSquares = _allSquares.Where(s => s.Id != "free").ToList();
+            var freeSpace = allSquares.FirstOrDefault(s => s.Id == "free");
+            
+            // If no free space exists, create one
+            if (freeSpace == null)
+            {
+                freeSpace = new BingoSquare
+                {
+                    Id = "free",
+                    Label = "Free Space",
+                    Type = "free"
+                };
+            }
+            
+            var availableSquares = allSquares.Where(s => s.Id != "free").ToList();
             var selectedSquares = availableSquares.OrderBy(x => random.Next()).Take(24).ToList();
 
             // Add the free space in the center (position 12)
@@ -50,7 +106,7 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
                 SlidingExpiration = TimeSpan.FromHours(24) // Keep for 24 hours
             });
 
-            logger.LogInformation("Generated new bingo set for client {ClientId}", clientId);
+            logger.LogInformation("Generated new bingo set for client {ClientId} with {Count} total squares", clientId, allSquares.Count);
             return bingoSet;
         }
         catch (Exception ex)
@@ -220,10 +276,15 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
 
             foreach (var client in clients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
             {
-                var bingoSet = await GetClientBingoSetAsync(client.ConnectionId);
-                if (bingoSet != null)
+                // Get the persistent client ID for this connection
+                var persistentClientId = await clientService.GetPersistentClientIdAsync(client.ConnectionId);
+                if (!string.IsNullOrEmpty(persistentClientId))
                 {
-                    bingoSets.Add(bingoSet);
+                    var bingoSet = await GetClientBingoSetAsync(persistentClientId);
+                    if (bingoSet != null)
+                    {
+                        bingoSets.Add(bingoSet);
+                    }
                 }
             }
 
@@ -250,7 +311,12 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
             // Update all client bingo sets that contain this square
             foreach (var client in clients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
             {
-                updateTasks.Add(UpdateSquareStatusAsync(client.ConnectionId, squareId, isChecked));
+                // Get the persistent client ID for this connection
+                var persistentClientId = await clientService.GetPersistentClientIdAsync(client.ConnectionId);
+                if (!string.IsNullOrEmpty(persistentClientId))
+                {
+                    updateTasks.Add(UpdateSquareStatusAsync(persistentClientId, squareId, isChecked));
+                }
             }
 
             var results = await Task.WhenAll(updateTasks);
@@ -584,39 +650,6 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
         catch (Exception ex)
         {
             logger.LogError(ex, "Error cleaning up expired approvals");
-        }
-    }
-
-    public async Task<bool> UpdateClientConnectionAsync(string oldClientId, string newClientId)
-    {
-        try
-        {
-            // Get the existing bingo set
-            var bingoSet = await GetClientBingoSetAsync(oldClientId);
-            if (bingoSet == null) return false;
-
-            // Don't change the ClientId - keep it as the persistent client ID
-            // Just update the timestamp
-            bingoSet.LastUpdated = DateTime.UtcNow;
-
-            // Store under the same persistent client ID (the cache key doesn't change)
-            var cacheKey = $"bingo_set_{oldClientId}";
-            var serializedSet = JsonSerializer.Serialize(bingoSet);
-            await cache.SetStringAsync(cacheKey, serializedSet, new DistributedCacheEntryOptions
-            {
-                SlidingExpiration = TimeSpan.FromHours(24)
-            });
-
-            logger.LogInformation("Updated timestamp for persistent client {PersistentClientId} with new connection {NewConnectionId}",
-                oldClientId, newClientId);
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error updating client connection for persistent client {PersistentClientId} with new connection {NewConnectionId}",
-                oldClientId, newClientId);
-            return false;
         }
     }
 

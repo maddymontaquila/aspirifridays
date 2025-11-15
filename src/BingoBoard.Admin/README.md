@@ -62,7 +62,7 @@ BingoBoard.Admin/
 - `GetCurrentBingoSet()` - Client requests their current bingo set
 
 ### Admin → Client Messages  
-- `AdminUpdateSquare(clientId, squareId, isChecked)` - Admin updates square for specific client
+- `AdminUpdateSquare(connectionId, squareId, isChecked)` - Admin updates square for specific client
 - `GetConnectedClients()` - Admin requests list of connected clients
 
 ### Broadcast Messages (Hub → All)
