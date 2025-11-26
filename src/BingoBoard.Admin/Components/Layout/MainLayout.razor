@@ -11,16 +11,20 @@
                 <h4 class="mb-0">🎯 AspiriFridays Bingo Admin</h4>
             </div>
             <div class="d-flex align-items-center gap-3">
-                <span class="user-info">
-                    <i class="fas fa-user-circle"></i>
-                    Admin User
-                </span>
-                <form method="post" action="/auth/logout" class="d-inline">
-                    <AntiforgeryToken />
-                    <button type="submit" class="btn btn-outline-danger btn-sm">
-                        <i class="fas fa-sign-out-alt"></i> Sign Out
-                    </button>
-                </form>
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="user-info">
+                            <i class="fas fa-user-circle"></i>
+                            Admin User
+                        </span>
+                        <form method="post" action="/auth/logout" class="d-inline">
+                            <AntiforgeryToken />
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-sign-out-alt"></i> Sign Out
+                            </button>
+                        </form>
+                    </Authorized>
+                </AuthorizeView>
                 <a href="https://learn.microsoft.com/aspnet/core/" target="_blank" class="btn btn-outline-secondary btn-sm">
                     <i class="fas fa-external-link-alt"></i> About
                 </a>

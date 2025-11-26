@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Components;
 using BingoBoard.Admin.Components;
 using BingoBoard.Admin.Endpoints;
 using BingoBoard.Admin.Hubs;
@@ -25,6 +26,8 @@ builder.Services.AddAuthorization();
 
 // Configure OpenAPI support
 builder.Services.AddOpenApi();
+// Add validation support
+builder.Services.AddValidation();
 
 builder.AddApplicationDbContext();
 
@@ -52,21 +55,19 @@ builder.Services.AddSignalR()
 // Add Redis with Aspire client for distributed caching and raw Redis access
 builder.AddRedisDistributedCache(connectionName: "cache");
 
-// Add CORS services
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins(frontendURL.Split(','))
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
-
 // Register custom services
 builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
+
+// Add HttpClient for API calls within the app
+builder.Services.AddScoped(sp => 
+{
+    var httpClient = new HttpClient
+    {
+        BaseAddress = new Uri(sp.GetRequiredService<NavigationManager>().BaseUri)
+    };
+    return httpClient;
+});
 
 // Register background services
 builder.Services.AddHostedService<ApprovalCleanupService>();
@@ -97,9 +98,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.MapStaticAssets();
-
-// Use CORS  
-app.UseCors();
 
 app.UseAntiforgery();
 

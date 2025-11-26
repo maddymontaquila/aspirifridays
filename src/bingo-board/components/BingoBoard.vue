@@ -189,7 +189,7 @@ export default {
       try {
         this.isLoading = true
         this.error = null
-        await signalRService.requestBingoSet()
+        await signalRService.requestBingoSet(this.persistentClientId)
       } catch (error) {
         console.error('Failed to request new bingo set:', error)
         this.error = `Failed to get new bingo board: ${error.message}`

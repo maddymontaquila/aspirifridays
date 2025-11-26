@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/BingoBoard.Admin/BingoBoard.Admin.csproj" />
+  <Project Path="src/BingoBoard.Data/BingoBoard.Data.csproj" />
+  <Project Path="src/BingoBoard.MauiHybrid/BingoBoard.MauiHybrid.csproj" />
+  <Project Path="src/BingoBoard.MigrationService/BingoBoard.MigrationService.csproj" />
+  <Project Path="src/BingoBoard.ServiceDefaults/BingoBoard.ServiceDefaults.csproj" />
+</Solution>
