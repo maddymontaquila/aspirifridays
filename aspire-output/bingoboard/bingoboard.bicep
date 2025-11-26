@@ -7,6 +7,10 @@ param env_outputs_azure_container_apps_environment_id string
 
 param bingoboard_containerimage string
 
+param yarp_cert_name string
+
+param yarp_domain string
+
 param env_outputs_azure_container_registry_endpoint string
 
 param env_outputs_azure_container_registry_managed_identity_id string
@@ -21,6 +25,13 @@ resource bingoboard 'Microsoft.App/containerApps@2025-01-01' = {
         external: true
         targetPort: 5000
         transport: 'http'
+        customDomains: [
+          {
+            name: yarp_domain
+            bindingType: (yarp_cert_name != '') ? 'SniEnabled' : 'Disabled'
+            certificateId: (yarp_cert_name != '') ? '${env_outputs_azure_container_apps_environment_id}/managedCertificates/${yarp_cert_name}' : null
+          }
+        ]
         stickySessions: {
           affinity: 'sticky'
         }

@@ -15,6 +15,10 @@ param cache_password_value string
 @secure()
 param sql_password_value string
 
+param admin_cert_name string
+
+param admin_domain string
+
 param env_outputs_azure_container_registry_endpoint string
 
 param env_outputs_azure_container_registry_managed_identity_id string
@@ -51,6 +55,13 @@ resource boardadmin 'Microsoft.App/containerApps@2025-02-02-preview' = {
         external: true
         targetPort: int(boardadmin_containerport)
         transport: 'http'
+        customDomains: [
+          {
+            name: admin_domain
+            bindingType: (admin_cert_name != '') ? 'SniEnabled' : 'Disabled'
+            certificateId: (admin_cert_name != '') ? '${env_outputs_azure_container_apps_environment_id}/managedCertificates/${admin_cert_name}' : null
+          }
+        ]
         stickySessions: {
           affinity: 'sticky'
         }
