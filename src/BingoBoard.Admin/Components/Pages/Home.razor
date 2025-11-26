@@ -28,7 +28,7 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    @if (ConnectedClients.Any())
+                    @if (ConnectedClients.Any() == true)
                     {
                         <div class="list-group">
                             @foreach (var client in ConnectedClients)

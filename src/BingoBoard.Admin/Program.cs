@@ -55,22 +55,9 @@ builder.Services.AddSignalR()
 // Add Redis with Aspire client for distributed caching and raw Redis access
 builder.AddRedisDistributedCache(connectionName: "cache");
 
-// Add CORS services
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins(frontendURL.Split(','))
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
-
 // Register custom services
 builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
-builder.Services.AddScoped<IBingoSquareService, BingoSquareService>();
 
 // Add HttpClient for API calls within the app
 builder.Services.AddScoped(sp => 
@@ -112,9 +99,6 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.MapStaticAssets();
 
-// Use CORS  
-app.UseCors();
-
 app.UseAntiforgery();
 
 // Map Razor components
@@ -126,8 +110,5 @@ app.MapHub<BingoHub>("/bingohub");
 
 // Map authentication endpoints
 app.MapAuthenticationEndpoints();
-
-// Map bingo square CRUD endpoints
-app.MapBingoSquareCrudEndpoints();
 
 app.Run();

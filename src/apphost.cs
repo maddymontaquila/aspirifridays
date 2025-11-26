@@ -12,6 +12,8 @@
 #:project ./BingoBoard.MigrationService
 #:property UserSecretsId=aspire-samples-bingoboard
 
+#pragma warning disable ASPIREACADOMAINS001
+
 using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 
@@ -53,10 +55,10 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 1; 
         app.Template.Scale.MinReplicas = 1;
-        // app.ConfigureCustomDomain(
-        //     builder.AddParameter("admin-domain", "admin.aspireify.live"),
-        //     builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301")
-        // );
+        app.ConfigureCustomDomain(
+            builder.AddParameter("admin-domain", "admin.aspireify.live"),
+            builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301")
+        );
     })
     .WithUrlForEndpoint("https", u => u.DisplayText = "Admin UI (https)")
     .WithUrlForEndpoint("http", u => u.DisplayText = "Admin UI (http)")
@@ -87,10 +89,10 @@ builder.AddYarp("bingoboard")
         app.Configuration.Ingress.StickySessionsAffinity = StickySessionAffinity.Sticky;
         app.Template.Scale.MaxReplicas = 5;
         app.Template.Scale.MinReplicas = 1;
-        // app.ConfigureCustomDomain(
-        //     builder.AddParameter("yarp-domain", "aspireify.live"),
-        //     builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247")
-        // );
+        app.ConfigureCustomDomain(
+            builder.AddParameter("yarp-domain", "aspireify.live"),
+            builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247")
+        );
         app.Template.Scale.Rules.Add(new(
             new ContainerAppScaleRule
             {
