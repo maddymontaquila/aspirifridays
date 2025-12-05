@@ -198,15 +198,5 @@
     "id": "amazing",
     "label": "Safia fixes a bug in 2 seconds",
     "type": "meta"
-  },
-  {
-    "id": "Invalid_ID_With_CAPS",
-    "label": "Valid label",
-    "type": "test"
-  },
-  {
-    "id": "Invalid_ID_With_CAPS_2",
-    "label": "Valid label",
-    "type": "test"
   }
 ]
