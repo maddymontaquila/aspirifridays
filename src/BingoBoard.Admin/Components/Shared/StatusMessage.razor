@@ -1,0 +1,36 @@
+@if (!string.IsNullOrEmpty(DisplayMessage))
+{
+    var statusMessageClass = DisplayMessage.StartsWith("Error") ? "danger" : "success";
+    var iconClass = DisplayMessage.StartsWith("Error") ? "fa-exclamation-circle" : "fa-check-circle";
+    <div class="toast-container">
+        <div class="toast-notification alert-@statusMessageClass" role="alert">
+            <i class="fas @iconClass me-2"></i>
+            <span class="flex-grow-1">@DisplayMessage</span>
+            <button type="button" class="toast-dismiss" onclick="this.parentElement.classList.add('dismissed')" aria-label="Dismiss">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private string? messageFromCookie;
+
+    [Parameter]
+    public string? Message { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private string? DisplayMessage => Message ?? messageFromCookie;
+
+    protected override void OnInitialized()
+    {
+        messageFromCookie = HttpContext.Request.Cookies[RedirectManager.StatusCookieName];
+
+        if (messageFromCookie is not null)
+        {
+            HttpContext.Response.Cookies.Delete(RedirectManager.StatusCookieName);
+        }
+    }
+}

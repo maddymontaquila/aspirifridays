@@ -11,26 +11,54 @@ export class SignalRService {
   }
 
   /**
+   * Wait for configuration from MAUI (if running in HybridWebView)
+   */
+  async waitForConfiguration(timeout = 5000) {
+    // If we already have config, return immediately
+    if (window.BACKEND_CONFIG?.adminUrl) {
+      return true;
+    }
+
+    // Check if we're in a HybridWebView by looking for the HybridWebView object
+    if (typeof window.HybridWebView === 'undefined') {
+      // Not in HybridWebView, proceed without config
+      return false;
+    }
+    
+    // Wait for configuration with timeout
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      if (window.BACKEND_CONFIG?.adminUrl) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    return false;
+  }
+
+  /**
    * Initialize connection to the SignalR hub
    */
   async connect() {
     try {
-      // Get the admin service URL from environment variables
-      // Try different possible environment variable formats
-      // let adminUrl = import.meta.env.VITE_ADMIN_URL
+      // Wait for MAUI configuration if in HybridWebView
+      await this.waitForConfiguration();
 
-      // For debugging, temporarily hardcode the admin URL
-      // if (!adminUrl) {
-      //   adminUrl = 'https://localhost:7207' // fallback for development
-      //   console.warn('No VITE_ADMIN_URL found, using fallback:', adminUrl)
-      // }
+      // Get the backend URL from the injected configuration (for MAUI)
+      // or fallback to relative URL (for web)
+      let hubUrl = 'bingohub'; // Default relative URL for web
 
-      console.log('Environment variables available:')
-      // console.log('VITE_ADMIN_URL:', import.meta.env.VITE_ADMIN_URL)
-      console.log('All env vars:', import.meta.env)
+      if (typeof window !== 'undefined' && window.BACKEND_CONFIG && window.BACKEND_CONFIG.adminUrl) {
+        const baseUrl = window.BACKEND_CONFIG.adminUrl;
+        hubUrl = `${baseUrl}/bingohub`;
+      }
 
       this.connection = new HubConnectionBuilder()
-        .withUrl('bingohub')
+        .withUrl(hubUrl, {
+          skipNegotiation: true,
+          transport: HttpTransportType.WebSockets
+        })
         .withAutomaticReconnect()
         .configureLogging(LogLevel.Information)
         .build()
@@ -154,13 +182,13 @@ export class SignalRService {
   /**
    * Request a new bingo set from the server
    */
-  async requestBingoSet(userName = null) {
+  async requestBingoSet(persistentClientId = null, userName = null) {
     if (!this.isConnected || !this.connection) {
       throw new Error('Not connected to SignalR hub')
     }
     
     try {
-      await this.connection.invoke('RequestBingoSet', userName)
+      await this.connection.invoke('RequestBingoSet', persistentClientId, userName)
     } catch (error) {
       console.error('Failed to request bingo set:', error)
       throw error
