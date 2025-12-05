@@ -33,6 +33,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.14.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.14.0" />
     <!-- Miscellaneous packages -->
+    <PackageVersion Include="Azure.Identity" Version="1.17.1" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.10.3" />
   </ItemGroup>
 </Project>
