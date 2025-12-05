@@ -1,9 +1,9 @@
-﻿#:sdk Aspire.AppHost.Sdk@13.1.0-preview.1.25604.10
+﻿#:sdk Aspire.AppHost.Sdk@13.1.0-preview.1.25605.1
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
 #:package Aspire.Hosting.Redis
-#:package Aspire.Hosting.SqlServer
+#:package Aspire.Hosting.Azure.Sql
 #:package Aspire.Hosting.JavaScript
 #:package Aspire.Hosting.Yarp
 #:package Aspire.Hosting.Maui
@@ -15,6 +15,7 @@
 
 using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
+using Aspire.Hosting.Azure;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -35,8 +36,8 @@ var cache = builder.AddRedis("cache")
         app.Template.Scale.MaxReplicas = 1;
     });
 
-var sql = builder.AddSqlServer("sql")
-    .WithLifetime(ContainerLifetime.Persistent);
+var sql = builder.AddAzureSqlServer("sql")
+    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
 
 var db = sql.AddDatabase("db");
 
@@ -62,14 +63,16 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     });
 
 
-var adminEndpoint = admin.GetEndpoint(builder.ExecutionContext.IsRunMode ? "http" : "https");
+var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
+    .WithReference(admin)
+    .WaitFor(admin);
+
 builder.AddYarp("bingoboard")
     .WithConfiguration(c =>
     {
-        c.AddRoute("/bingohub/{**catch-all}", adminEndpoint);
+        c.AddRoute("/bingohub/{**catch-all}", admin);
     })
-    .WithDockerfile("./bingo-board")
-    .WithStaticFiles()
+    .PublishWithStaticFiles(frontend)
     .WaitFor(admin)
     .WithIconName("SerialPort")
     .WithExternalHttpEndpoints()
