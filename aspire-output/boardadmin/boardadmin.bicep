@@ -5,6 +5,10 @@ param env_outputs_azure_container_apps_environment_default_domain string
 
 param env_outputs_azure_container_apps_environment_id string
 
+param env_outputs_azure_container_registry_endpoint string
+
+param env_outputs_azure_container_registry_managed_identity_id string
+
 param boardadmin_containerimage string
 
 param boardadmin_containerport string
@@ -13,15 +17,11 @@ param boardadmin_containerport string
 param cache_password_value string
 
 @secure()
-param sql_password_value string
+param admin_password_value string
 
 param admin_cert_name string
 
 param admin_domain string
-
-param env_outputs_azure_container_registry_endpoint string
-
-param env_outputs_azure_container_registry_managed_identity_id string
 
 resource boardadmin 'Microsoft.App/containerApps@2025-02-02-preview' = {
   name: 'boardadmin'
@@ -42,12 +42,8 @@ resource boardadmin 'Microsoft.App/containerApps@2025-02-02-preview' = {
           value: 'redis://:${uriComponent(cache_password_value)}@cache:6379'
         }
         {
-          name: 'connectionstrings--db'
-          value: 'Server=sql,1433;User ID=sa;Password=${sql_password_value};TrustServerCertificate=true;Initial Catalog=db'
-        }
-        {
-          name: 'db-password'
-          value: sql_password_value
+          name: 'authentication--adminpassword'
+          value: admin_password_value
         }
       ]
       activeRevisionsMode: 'Single'
@@ -126,36 +122,8 @@ resource boardadmin 'Microsoft.App/containerApps@2025-02-02-preview' = {
               secretRef: 'cache-uri'
             }
             {
-              name: 'ConnectionStrings__db'
-              secretRef: 'connectionstrings--db'
-            }
-            {
-              name: 'DB_HOST'
-              value: 'sql'
-            }
-            {
-              name: 'DB_PORT'
-              value: '1433'
-            }
-            {
-              name: 'DB_USERNAME'
-              value: 'sa'
-            }
-            {
-              name: 'DB_PASSWORD'
-              secretRef: 'db-password'
-            }
-            {
-              name: 'DB_URI'
-              value: 'mssql://sql:1433/db'
-            }
-            {
-              name: 'DB_JDBCCONNECTIONSTRING'
-              value: 'jdbc:sqlserver://sql:1433;trustServerCertificate=true;databaseName=db'
-            }
-            {
-              name: 'DB_DATABASE'
-              value: 'db'
+              name: 'Authentication__AdminPassword'
+              secretRef: 'authentication--adminpassword'
             }
           ]
         }

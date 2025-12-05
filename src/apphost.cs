@@ -19,6 +19,12 @@ using Azure.Provisioning.AppContainers;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+
+var adminDomain = builder.AddParameter("admin-domain", "admin.aspireify.live");
+var adminCertName = builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301");
+var yarpDomain = builder.AddParameter("yarp-domain", "aspireify.live");
+var yarpCertName = builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247");
+
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
 builder.AddAzureContainerAppEnvironment("env");
@@ -60,18 +66,7 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
         app.Template.Scale.MaxReplicas = 1; 
         app.Template.Scale.MinReplicas = 1;
         app.ConfigureCustomDomain(adminDomain, adminCertName);
-    })
-    .WithUrlForEndpoint("https", u => u.DisplayText = "Admin UI (https)")
-    .WithUrlForEndpoint("http", u => u.DisplayText = "Admin UI (http)")
-    .WithUrlForEndpoint("https", e => new ResourceUrlAnnotation() { Url = "/scalar", DisplayText = "OpenAPI Docs" });
-
-
-builder.AddViteApp("bingoboard-dev", "./bingo-board", "aspire")
-    .WithNpm()
-    .ExcludeFromManifest()
-    .WithReference(admin)
-    .WaitFor(admin)
-    .WithIconName("SerialPort");
+    });
 
 
 var adminEndpoint = admin.GetEndpoint(builder.ExecutionContext.IsRunMode ? "http" : "https");
@@ -91,7 +86,7 @@ builder.AddYarp("bingoboard")
         app.Template.Scale.MaxReplicas = 5;
         app.Template.Scale.MinReplicas = 1;
         app.ConfigureCustomDomain(yarpDomain, yarpCertName);
-        app.Template.Scale.Rules.Add(new(
+        app.Template.Scale.Rules.Add(new (
             new ContainerAppScaleRule
             {
                 Name = "http-scaler",

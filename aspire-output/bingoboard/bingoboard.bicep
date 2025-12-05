@@ -5,15 +5,15 @@ param env_outputs_azure_container_apps_environment_default_domain string
 
 param env_outputs_azure_container_apps_environment_id string
 
+param env_outputs_azure_container_registry_endpoint string
+
+param env_outputs_azure_container_registry_managed_identity_id string
+
 param bingoboard_containerimage string
 
 param yarp_cert_name string
 
 param yarp_domain string
-
-param env_outputs_azure_container_registry_endpoint string
-
-param env_outputs_azure_container_registry_managed_identity_id string
 
 resource bingoboard 'Microsoft.App/containerApps@2025-01-01' = {
   name: 'bingoboard'
@@ -61,7 +61,7 @@ resource bingoboard 'Microsoft.App/containerApps@2025-01-01' = {
               value: 'Production'
             }
             {
-              name: 'BOARDADMIN_HTTPS'
+              name: 'services__boardadmin__https__0'
               value: 'https://boardadmin.${env_outputs_azure_container_apps_environment_default_domain}'
             }
             {
@@ -75,10 +75,6 @@ resource bingoboard 'Microsoft.App/containerApps@2025-01-01' = {
             {
               name: 'REVERSEPROXY__CLUSTERS__cluster_boardadmin__DESTINATIONS__destination1__ADDRESS'
               value: 'https://_https.boardadmin'
-            }
-            {
-              name: 'services__boardadmin__https__0'
-              value: 'https://boardadmin.${env_outputs_azure_container_apps_environment_default_domain}'
             }
             {
               name: 'YARP_ENABLE_STATIC_FILES'
