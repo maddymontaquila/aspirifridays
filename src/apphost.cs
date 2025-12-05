@@ -1,4 +1,4 @@
-#:sdk Aspire.AppHost.Sdk@13.0.0
+﻿#:sdk Aspire.AppHost.Sdk@13.1.0-preview.1.25604.10
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
@@ -10,7 +10,6 @@
 #:package Aspire.Hosting.DevTunnels
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
-#:property UserSecretsId=aspire-samples-bingoboard
 
 #pragma warning disable ASPIREACADOMAINS001
 
@@ -18,12 +17,6 @@ using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 
 var builder = DistributedApplication.CreateBuilder(args);
-
-
-var adminDomain = builder.AddParameter("admin-domain", "admin.aspireify.live");
-var adminCertName = builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301");
-var yarpDomain = builder.AddParameter("yarp-domain", "aspireify.live");
-var yarpCertName = builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247");
 
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
@@ -112,6 +105,7 @@ var ios = mauiapp.AddiOSSimulator()
 // Add Android emulator with default emulator (uses running or default emulator)
 mauiapp.AddAndroidEmulator()
     .ExcludeFromManifest()
+    .WithParentRelationship(mauiapp)
     .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
     .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
 
