@@ -1,4 +1,4 @@
-#:sdk Aspire.AppHost.Sdk@13.1.0
+﻿#:sdk Aspire.AppHost.Sdk@13.1.0
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
@@ -37,7 +37,15 @@ var cache = builder.AddRedis("cache")
     });
 
 var sql = builder.AddAzureSqlServer("sql")
-    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
+    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent))
+    .ConfigureInfrastructure(infra =>
+    {
+        var sqlServer = infra.GetProvisionableResources().OfType<Azure.Provisioning.Sql.SqlServer>().Single();
+        var sqlDatabase = infra.GetProvisionableResources().OfType<Azure.Provisioning.Sql.SqlDatabase>().Single();
+        
+        // Set FreeLimitExhaustionBehavior to BillOverUsage to match existing resource
+        sqlDatabase.FreeLimitExhaustionBehavior = Azure.Provisioning.Sql.FreeLimitExhaustionBehavior.BillOverUsage;
+    });
 
 var db = sql.AddDatabase("db");
 
