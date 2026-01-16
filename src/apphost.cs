@@ -1,4 +1,4 @@
-﻿#:sdk Aspire.AppHost.Sdk@13.1.0-preview.1.25605.1
+#:sdk Aspire.AppHost.Sdk@13.1.0
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
