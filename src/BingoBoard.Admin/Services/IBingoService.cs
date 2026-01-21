@@ -101,4 +101,14 @@ public interface IBingoService
     /// Admin approves all pending approval requests
     /// </summary>
     Task<int> ApproveAllPendingRequestsAsync(string adminId);
+
+    /// <summary>
+    /// Reset all globally checked squares (for end of stream)
+    /// </summary>
+    Task ResetAllGloballyCheckedSquaresAsync();
+
+    /// <summary>
+    /// Clear all pending approval requests
+    /// </summary>
+    Task ClearAllPendingApprovalsAsync();
 }

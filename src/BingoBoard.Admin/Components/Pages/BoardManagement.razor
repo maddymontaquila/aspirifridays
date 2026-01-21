@@ -22,41 +22,64 @@
     <!-- Live Mode Toggle Section -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card @(isLiveMode ? "border-success" : "border-info")">
-                <div class="card-header @(isLiveMode ? "bg-success text-white" : "bg-info text-white")">
+            <div class="card @(isLiveMode ? "border-danger" : "border-success")">
+                <div class="card-header @(isLiveMode ? "bg-danger text-white" : "bg-success text-white")">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
                             <i class="fas @(isLiveMode ? "fa-broadcast-tower" : "fa-gamepad")"></i> 
-                            Stream Mode: @(isLiveMode ? "LIVE" : "FREE PLAY")
+                            Stream Status: @(isLiveMode ? "🔴 LIVE" : "✅ FREE PLAY")
                         </h5>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" 
-                                   type="checkbox" 
-                                   id="liveModeSwitch" 
-                                   @bind="isLiveMode" 
-                                   @bind:after="OnLiveModeToggle"
-                                   style="font-size: 1.25rem;">
-                            <label class="form-check-label text-white ms-2" for="liveModeSwitch">
-                                @(isLiveMode ? "Live Stream Active" : "Free Play Mode")
-                            </label>
+                        <div class="btn-group">
+                            @if (!isLiveMode)
+                            {
+                                <button @onclick="StartStream" 
+                                        class="btn btn-light btn-sm"
+                                        disabled="@isProcessingStreamAction">
+                                    <i class="fas fa-play"></i> Start Stream
+                                </button>
+                            }
+                            else
+                            {
+                                <button @onclick="EndStream" 
+                                        class="btn btn-light btn-sm"
+                                        disabled="@isProcessingStreamAction">
+                                    <i class="fas fa-stop"></i> End Stream
+                                </button>
+                            }
                         </div>
                     </div>
                 </div>
                 <div class="card-body">
                     @if (isLiveMode)
                     {
-                        <div class="alert alert-success mb-0">
+                        <div class="alert alert-danger mb-3">
                             <i class="fas fa-video"></i>
                             <strong>Live Stream Mode Active:</strong> 
                             Clients must request approval to mark squares. Use the approval workflow below to manage requests.
                         </div>
+                        <div class="d-flex gap-2">
+                            <button @onclick="EndStream" 
+                                    class="btn btn-outline-danger"
+                                    disabled="@isProcessingStreamAction">
+                                <i class="fas fa-stop-circle"></i> End Stream Session
+                                <small class="d-block text-muted">(Resets all squares & returns to free play)</small>
+                            </button>
+                        </div>
                     }
                     else
                     {
-                        <div class="alert alert-info mb-0">
+                        <div class="alert alert-success mb-3">
                             <i class="fas fa-play"></i>
                             <strong>Free Play Mode Active:</strong> 
                             Clients can freely mark squares without approval. Perfect for when there's no live stream happening.
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button @onclick="StartStream" 
+                                    class="btn btn-outline-primary"
+                                    disabled="@isProcessingStreamAction">
+                                <i class="fas fa-broadcast-tower"></i> Start New Stream Session
+                                <small class="d-block text-muted">(Resets all squares & enables approval mode)</small>
+                            </button>
                         </div>
                     }
                 </div>
@@ -330,6 +353,7 @@
     private bool isLoading = true;
     private bool showCheckedOnly = false;
     private bool isProcessingApproval = false;
+    private bool isProcessingStreamAction = false;
     private bool showDenyModalDialog = false;
     private PendingApproval? currentApprovalForDenial = null;
     private string denyReason = "";
@@ -759,6 +783,94 @@
             });
         });
 
+        hubConnection.On<dynamic>("StreamSessionStarted", (data) =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                try
+                {
+                    string message = "";
+                    
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        if (jsonElement.TryGetProperty("message", out var messageProp))
+                            message = messageProp.GetString() ?? "";
+                    }
+                    else
+                    {
+                        message = data.Message?.ToString() ?? "";
+                    }
+                    
+                    AddToLog($"Stream session started: {message}");
+                    isLiveMode = true;
+                    
+                    // Clear local state
+                    pendingApprovals.Clear();
+                    globallyCheckedSquares.Clear();
+                    
+                    // Update all squares to unchecked
+                    foreach (var square in allSquares)
+                    {
+                        square.IsChecked = false;
+                    }
+                    
+                    UpdateDisplaySquares();
+                    isProcessingStreamAction = false;
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    AddToLog($"Error processing stream session start: {ex.Message}");
+                    isProcessingStreamAction = false;
+                    StateHasChanged();
+                }
+            });
+        });
+
+        hubConnection.On<dynamic>("StreamSessionEnded", (data) =>
+        {
+            _ = InvokeAsync(async () =>
+            {
+                try
+                {
+                    string message = "";
+                    
+                    if (data is System.Text.Json.JsonElement jsonElement)
+                    {
+                        if (jsonElement.TryGetProperty("message", out var messageProp))
+                            message = messageProp.GetString() ?? "";
+                    }
+                    else
+                    {
+                        message = data.Message?.ToString() ?? "";
+                    }
+                    
+                    AddToLog($"Stream session ended: {message}");
+                    isLiveMode = false;
+                    
+                    // Clear local state
+                    pendingApprovals.Clear();
+                    globallyCheckedSquares.Clear();
+                    
+                    // Update all squares to unchecked
+                    foreach (var square in allSquares)
+                    {
+                        square.IsChecked = false;
+                    }
+                    
+                    UpdateDisplaySquares();
+                    isProcessingStreamAction = false;
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    AddToLog($"Error processing stream session end: {ex.Message}");
+                    isProcessingStreamAction = false;
+                    StateHasChanged();
+                }
+            });
+        });
+
         await hubConnection.StartAsync();
         await LoadAllSquares();
         await LoadGloballyCheckedSquares();
@@ -1002,6 +1114,50 @@
         currentApprovalForDenial = null;
         denyReason = "";
         StateHasChanged();
+    }
+
+    private async Task StartStream()
+    {
+        if (hubConnection == null || isProcessingStreamAction) return;
+
+        try
+        {
+            isProcessingStreamAction = true;
+            StateHasChanged();
+            
+            AddToLog("Starting stream session...");
+            await hubConnection.SendAsync("StartStreamSession");
+            
+            // Note: isProcessingStreamAction will be reset when we receive the StreamSessionStarted event
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error starting stream session: {ex.Message}");
+            isProcessingStreamAction = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EndStream()
+    {
+        if (hubConnection == null || isProcessingStreamAction) return;
+
+        try
+        {
+            isProcessingStreamAction = true;
+            StateHasChanged();
+            
+            AddToLog("Ending stream session...");
+            await hubConnection.SendAsync("EndStreamSession");
+            
+            // Note: isProcessingStreamAction will be reset when we receive the StreamSessionEnded event
+        }
+        catch (Exception ex)
+        {
+            AddToLog($"Error ending stream session: {ex.Message}");
+            isProcessingStreamAction = false;
+            StateHasChanged();
+        }
     }
 
     private async Task OnLiveModeToggle()

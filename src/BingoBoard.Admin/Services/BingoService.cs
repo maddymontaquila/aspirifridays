@@ -1,61 +1,57 @@
 using BingoBoard.Admin.Models;
 using BingoBoard.Admin.Services;
+using BingoBoard.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 
 namespace BingoBoard.Admin.Services;
 
 /// <summary>
-/// Implementation of bingo service using Redis for persistence and file for squares
+/// Implementation of bingo service using Redis for persistence and database for squares
 /// </summary>
-public class BingoService(IDistributedCache cache, ILogger<BingoService> logger, IClientConnectionService clientService, IWebHostEnvironment env) : IBingoService
+public class BingoService(IDistributedCache cache, ILogger<BingoService> logger, IClientConnectionService clientService, ApplicationDbContext dbContext) : IBingoService
 {
-    private static readonly List<BingoSquare> _allSquares = GenerateAllSquares();
-    private static readonly string DataFilePath = "Data/bingo-squares.json";
+    private List<BingoSquare>? _cachedSquares;
 
     public async Task<List<BingoSquare>> GetAllSquaresAsync()
     {
         try
         {
-            // Try to load from file first
-            var filePath = Path.Combine(env.ContentRootPath, DataFilePath);
-            
-            if (File.Exists(filePath))
+            // Use cached squares if available
+            if (_cachedSquares != null)
             {
-                var json = await File.ReadAllTextAsync(filePath);
-                var fileSquares = JsonSerializer.Deserialize<List<BingoSquareFromFile>>(json, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
-                });
-                
-                if (fileSquares != null && fileSquares.Any())
-                {
-                    logger.LogInformation("Loaded {Count} squares from file", fileSquares.Count);
-                    return fileSquares.Select(s => new BingoSquare
-                    {
-                        Id = s.Id,
-                        Label = s.Label,
-                        Type = s.Type ?? "default"
-                    }).ToList();
-                }
+                return _cachedSquares.ToList();
             }
-            
-            // Fallback to static list if file doesn't exist or is empty
-            logger.LogWarning("File not found or empty, falling back to static list");
-            return _allSquares.ToList();
+
+            // Load from database
+            var dbSquares = await dbContext.BingoSquares
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.DisplayOrder)
+                .ToListAsync();
+
+            if (dbSquares.Any())
+            {
+                logger.LogInformation("Loaded {Count} squares from database", dbSquares.Count);
+                _cachedSquares = dbSquares.Select(s => new BingoSquare
+                {
+                    Id = s.Id,
+                    Label = s.Label,
+                    Type = s.Type ?? "default"
+                }).ToList();
+                
+                return _cachedSquares.ToList();
+            }
+
+            // Fallback to static list if database is empty
+            logger.LogWarning("No squares found in database, using fallback list");
+            return GenerateAllSquares();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error loading squares from file, falling back to static list");
-            return _allSquares.ToList();
+            logger.LogError(ex, "Error loading squares from database, falling back to static list");
+            return GenerateAllSquares();
         }
-    }
-
-    private record BingoSquareFromFile
-    {
-        public string Id { get; init; } = string.Empty;
-        public string Label { get; init; } = string.Empty;
-        public string? Type { get; init; }
     }
 
     public async Task<BingoSet> GenerateRandomBingoSetAsync(string clientId)
@@ -319,13 +315,21 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
                 }
             }
 
-            var results = await Task.WhenAll(updateTasks);
-            var successCount = results.Count(r => r);
+            if (updateTasks.Count > 0)
+            {
+                var results = await Task.WhenAll(updateTasks);
+                var successCount = results.Count(r => r);
 
-            logger.LogInformation("Updated square {SquareId} globally for {SuccessCount}/{TotalCount} clients",
-                squareId, successCount, results.Length);
+                logger.LogInformation("Updated square {SquareId} globally for {SuccessCount}/{TotalCount} clients",
+                    squareId, successCount, results.Length);
+            }
+            else
+            {
+                logger.LogInformation("Updated square {SquareId} globally (no connected clients with bingo sets)", squareId);
+            }
 
-            return successCount > 0; // Return true if at least one update succeeded
+            // Return true since the global state was saved successfully
+            return true;
         }
         catch (Exception ex)
         {
@@ -365,8 +369,9 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
         try
         {
             var globallyChecked = new List<string>();
+            var allSquares = await GetAllSquaresAsync();
 
-            foreach (var square in _allSquares)
+            foreach (var square in allSquares)
             {
                 var globalKey = $"global_square_{square.Id}";
                 var isCheckedStr = await cache.GetStringAsync(globalKey);
@@ -404,7 +409,8 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
             }
 
             // Get the square details for the label
-            var square = _allSquares.FirstOrDefault(s => s.Id == squareId) ?? throw new ArgumentException($"Square with ID {squareId} not found");
+            var allSquares = await GetAllSquaresAsync();
+            var square = allSquares.FirstOrDefault(s => s.Id == squareId) ?? throw new ArgumentException($"Square with ID {squareId} not found");
             var approval = new PendingApproval
             {
                 ClientId = clientId,
@@ -675,19 +681,19 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
             var cacheKey = "bingo_live_mode";
             var liveModeStr = await cache.GetStringAsync(cacheKey);
 
-            // Default to true (live mode) if not set for safety
+            // Default to false (free play mode) when app starts
             if (string.IsNullOrEmpty(liveModeStr))
             {
-                await SetLiveModeAsync(true);
-                return true;
+                await SetLiveModeAsync(false);
+                return false;
             }
 
-            return bool.TryParse(liveModeStr, out bool isLiveMode) ? isLiveMode : true;
+            return bool.TryParse(liveModeStr, out bool isLiveMode) ? isLiveMode : false;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting live mode");
-            return true; // Default to live mode for safety
+            return false; // Default to free play mode
         }
     }
 
@@ -785,6 +791,58 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
         {
             logger.LogError(ex, "Error approving all pending requests");
             throw; // Re-throw to let caller handle the error
+        }
+    }
+
+    public async Task ResetAllGloballyCheckedSquaresAsync()
+    {
+        try
+        {
+            var allSquares = await GetAllSquaresAsync();
+            
+            foreach (var square in allSquares)
+            {
+                var globalKey = $"global_square_{square.Id}";
+                await cache.RemoveAsync(globalKey);
+            }
+
+            logger.LogInformation("Reset all {Count} globally checked squares", allSquares.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error resetting globally checked squares");
+            throw;
+        }
+    }
+
+    public async Task ClearAllPendingApprovalsAsync()
+    {
+        try
+        {
+            var pendingListKey = "pending_approvals_list";
+            var existingList = await cache.GetStringAsync(pendingListKey);
+
+            if (!string.IsNullOrEmpty(existingList))
+            {
+                var approvalIds = JsonSerializer.Deserialize<List<string>>(existingList) ?? [];
+                
+                // Remove all individual approval entries
+                foreach (var approvalId in approvalIds)
+                {
+                    var cacheKey = $"pending_approval_{approvalId}";
+                    await cache.RemoveAsync(cacheKey);
+                }
+            }
+
+            // Clear the list
+            await cache.RemoveAsync(pendingListKey);
+
+            logger.LogInformation("Cleared all pending approval requests");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error clearing pending approvals");
+            throw;
         }
     }
 

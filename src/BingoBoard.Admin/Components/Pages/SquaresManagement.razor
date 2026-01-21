@@ -1,0 +1,380 @@
+@page "/squares-management"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using BingoBoard.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject ILogger<SquaresManagement> Logger
+
+<PageTitle>Squares Management - Bingo Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-puzzle-piece"></i> Squares Management
+            </h1>
+            <p class="text-muted">Add, edit, or remove bingo squares from the game.</p>
+        </div>
+    </div>
+
+    <!-- Add New Square Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plus-circle"></i> Add New Square
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="newSquare" OnValidSubmit="AddSquare" FormName="addSquare">
+                        <DataAnnotationsValidator />
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">ID (unique slug)</label>
+                                <InputText @bind-Value="newSquare.Id" class="form-control" placeholder="e.g., my-new-square" />
+                                <ValidationMessage For="@(() => newSquare.Id)" />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Label (display text)</label>
+                                <InputText @bind-Value="newSquare.Label" class="form-control" placeholder="e.g., Someone says something funny" />
+                                <ValidationMessage For="@(() => newSquare.Label)" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Type</label>
+                                <InputSelect @bind-Value="newSquare.Type" class="form-select">
+                                    <option value="">Select type...</option>
+                                    <option value="quote">Quote</option>
+                                    <option value="dev">Dev Moment</option>
+                                    <option value="bug">Bug</option>
+                                    <option value="oops">Oops</option>
+                                    <option value="meta">Meta</option>
+                                    <option value="free">Free Space</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100" disabled="@isAdding">
+                                    @if (isAdding)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                    </EditForm>
+                    @if (!string.IsNullOrEmpty(addMessage))
+                    {
+                        <div class="alert @(addSuccess ? "alert-success" : "alert-danger") mt-3 mb-0">
+                            @addMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Existing Squares Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list"></i> All Squares
+                        <span class="badge bg-secondary ms-2">@squares.Count</span>
+                    </h5>
+                    <div>
+                        <button @onclick="LoadSquares" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (isLoading)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (!squares.Any())
+                    {
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i> No squares found. Add your first square above!
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th style="width: 150px;">ID</th>
+                                        <th>Label</th>
+                                        <th style="width: 100px;">Type</th>
+                                        <th style="width: 80px;">Active</th>
+                                        <th style="width: 150px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var square in squares)
+                                    {
+                                        <tr class="@(!square.IsActive ? "table-secondary" : "")">
+                                            <td>@(squares.IndexOf(square) + 1)</td>
+                                            <td><code>@square.Id</code></td>
+                                            <td>
+                                                @if (editingSquareId == square.Id)
+                                                {
+                                                    <input type="text" @bind="editLabel" class="form-control form-control-sm" />
+                                                }
+                                                else
+                                                {
+                                                    @square.Label
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (editingSquareId == square.Id)
+                                                {
+                                                    <select @bind="editType" class="form-select form-select-sm">
+                                                        <option value="quote">Quote</option>
+                                                        <option value="dev">Dev Moment</option>
+                                                        <option value="bug">Bug</option>
+                                                        <option value="oops">Oops</option>
+                                                        <option value="meta">Meta</option>
+                                                        <option value="free">Free Space</option>
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge @GetTypeBadgeClass(square.Type)">@(square.Type ?? "default")</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" 
+                                                           type="checkbox" 
+                                                           checked="@square.IsActive"
+                                                           @onchange="@(() => ToggleActive(square))" />
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (editingSquareId == square.Id)
+                                                {
+                                                    <button @onclick="SaveEdit" class="btn btn-success btn-sm me-1" disabled="@isSaving">
+                                                        <i class="fas fa-save"></i>
+                                                    </button>
+                                                    <button @onclick="CancelEdit" class="btn btn-secondary btn-sm">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button @onclick="@(() => StartEdit(square))" class="btn btn-outline-primary btn-sm me-1">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    @if (square.Id != "free")
+                                                    {
+                                                        <button @onclick="@(() => DeleteSquare(square))" class="btn btn-outline-danger btn-sm">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    }
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<BingoSquareEntity> squares = new();
+    private NewSquareModel newSquare = new();
+    private bool isLoading = true;
+    private bool isAdding = false;
+    private bool isSaving = false;
+    private string? addMessage;
+    private bool addSuccess;
+
+    private string? editingSquareId;
+    private string editLabel = "";
+    private string? editType;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSquares();
+    }
+
+    private async Task LoadSquares()
+    {
+        isLoading = true;
+        try
+        {
+            squares = await DbContext.BingoSquares
+                .OrderBy(s => s.DisplayOrder)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading squares");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddSquare()
+    {
+        if (string.IsNullOrWhiteSpace(newSquare.Id) || string.IsNullOrWhiteSpace(newSquare.Label))
+        {
+            addMessage = "ID and Label are required.";
+            addSuccess = false;
+            return;
+        }
+
+        isAdding = true;
+        addMessage = null;
+
+        try
+        {
+            // Check for duplicate ID
+            if (await DbContext.BingoSquares.AnyAsync(s => s.Id == newSquare.Id))
+            {
+                addMessage = $"A square with ID '{newSquare.Id}' already exists.";
+                addSuccess = false;
+                return;
+            }
+
+            var maxOrder = await DbContext.BingoSquares.MaxAsync(s => (int?)s.DisplayOrder) ?? 0;
+
+            var entity = new BingoSquareEntity
+            {
+                Id = newSquare.Id.ToLowerInvariant().Replace(" ", "-"),
+                Label = newSquare.Label,
+                Type = newSquare.Type,
+                IsActive = true,
+                DisplayOrder = maxOrder + 1,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            DbContext.BingoSquares.Add(entity);
+            await DbContext.SaveChangesAsync();
+
+            addMessage = $"Square '{newSquare.Label}' added successfully!";
+            addSuccess = true;
+            newSquare = new NewSquareModel();
+
+            await LoadSquares();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error adding square");
+            addMessage = $"Error adding square: {ex.Message}";
+            addSuccess = false;
+        }
+        finally
+        {
+            isAdding = false;
+        }
+    }
+
+    private void StartEdit(BingoSquareEntity square)
+    {
+        editingSquareId = square.Id;
+        editLabel = square.Label;
+        editType = square.Type;
+    }
+
+    private void CancelEdit()
+    {
+        editingSquareId = null;
+        editLabel = "";
+        editType = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingSquareId == null) return;
+
+        isSaving = true;
+        try
+        {
+            var square = await DbContext.BingoSquares.FindAsync(editingSquareId);
+            if (square != null)
+            {
+                square.Label = editLabel;
+                square.Type = editType;
+                square.UpdatedAt = DateTime.UtcNow;
+                await DbContext.SaveChangesAsync();
+            }
+
+            CancelEdit();
+            await LoadSquares();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving square edit");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ToggleActive(BingoSquareEntity square)
+    {
+        try
+        {
+            square.IsActive = !square.IsActive;
+            square.UpdatedAt = DateTime.UtcNow;
+            await DbContext.SaveChangesAsync();
+            await LoadSquares();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error toggling square active state");
+        }
+    }
+
+    private async Task DeleteSquare(BingoSquareEntity square)
+    {
+        try
+        {
+            DbContext.BingoSquares.Remove(square);
+            await DbContext.SaveChangesAsync();
+            await LoadSquares();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting square");
+        }
+    }
+
+    private static string GetTypeBadgeClass(string? type) => type switch
+    {
+        "quote" => "bg-info",
+        "dev" => "bg-primary",
+        "bug" => "bg-danger",
+        "oops" => "bg-warning text-dark",
+        "meta" => "bg-secondary",
+        "free" => "bg-success",
+        _ => "bg-light text-dark"
+    };
+
+    private class NewSquareModel
+    {
+        public string Id { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string? Type { get; set; }
+    }
+}

@@ -16,6 +16,7 @@
 using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 using Aspire.Hosting.Azure;
+using Microsoft.Extensions.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -99,35 +100,37 @@ builder.AddYarp("bingoboard")
     })
     .WithExplicitStart();
 
+if (builder.Configuration["DOTNET_LAUNCH_PROFILE"] == "maui")
+{
+    var publicDevTunnel = builder.AddDevTunnel("devtunnel-public")
+        .WithAnonymousAccess() // All ports on this tunnel default to allowing anonymous access
+        .WithReference(admin.GetEndpoint("https"));
 
-var publicDevTunnel = builder.AddDevTunnel("devtunnel-public")
-    .WithAnonymousAccess() // All ports on this tunnel default to allowing anonymous access
-    .WithReference(admin.GetEndpoint("https"));
 
+    var mauiapp = builder.AddMauiProject("mauiapp", @"BingoBoard.MauiHybrid/BingoBoard.MauiHybrid.csproj");
 
-var mauiapp = builder.AddMauiProject("mauiapp", @"BingoBoard.MauiHybrid/BingoBoard.MauiHybrid.csproj");
+    // Add iOS simulator with default simulator (uses running or default simulator)
+    var ios = mauiapp.AddiOSSimulator()
+        .ExcludeFromManifest()
+        .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
+        .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
 
-// Add iOS simulator with default simulator (uses running or default simulator)
-var ios = mauiapp.AddiOSSimulator()
-    .ExcludeFromManifest()
-    .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
-    .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
+    // Add Android emulator with default emulator (uses running or default emulator)
+    mauiapp.AddAndroidEmulator()
+        .ExcludeFromManifest()
+        .WithParentRelationship(mauiapp)
+        .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
+        .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
 
-// Add Android emulator with default emulator (uses running or default emulator)
-mauiapp.AddAndroidEmulator()
-    .ExcludeFromManifest()
-    .WithParentRelationship(mauiapp)
-    .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
-    .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
+    // Add Mac Catalyst desktop
+    mauiapp.AddMacCatalystDevice()
+        .ExcludeFromManifest()
+        .WithReference(admin);
 
-// Add Mac Catalyst desktop
-mauiapp.AddMacCatalystDevice()
-    .ExcludeFromManifest()
-    .WithReference(admin);
-
-// Add Windows desktop
-mauiapp.AddWindowsDevice()
-    .ExcludeFromManifest()
-    .WithReference(admin);
+    // Add Windows desktop
+    mauiapp.AddWindowsDevice()
+        .ExcludeFromManifest()
+        .WithReference(admin);
+}
 
 builder.Build().Run();
