@@ -107,3 +107,21 @@ h1:focus {
     color: #666;
     margin-bottom: 2rem;
 }
+
+/* Version footer styles */
+.version-footer {
+    margin-top: 2rem;
+    padding: 1rem 0;
+    text-align: center;
+    font-size: 0.75rem;
+}
+
+.version-footer a {
+    color: #999;
+    text-decoration: none;
+}
+
+.version-footer a:hover {
+    color: #666;
+    text-decoration: underline;
+}

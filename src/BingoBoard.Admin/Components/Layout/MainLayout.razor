@@ -34,6 +34,12 @@
         <article class="content px-4">
             @Body
         </article>
+        
+        <footer class="version-footer">
+            <a href="@CommitUrl" target="_blank">@CommitHash</a> ·
+            <a href="https://dot.net" target="_blank">.NET @DotNetVersion</a> ·
+            <a href="https://aspire.dev" target="_blank">Aspire @AspireVersion</a>
+        </footer>
     </main>
 </div>
 
@@ -42,3 +48,17 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private string FullCommitSha => Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "";
+    
+    private string CommitHash => FullCommitSha.Length >= 7 ? FullCommitSha[..7] : "dev";
+    
+    private string CommitUrl => FullCommitSha.Length > 0 
+        ? $"https://github.com/maddymontaquila/aspirifridays/commit/{FullCommitSha}" 
+        : "https://github.com/maddymontaquila/aspirifridays";
+    
+    private string DotNetVersion => Environment.Version.Major.ToString();
+    
+    private string AspireVersion => Environment.GetEnvironmentVariable("ASPIRE_VERSION") ?? "dev";
+}
