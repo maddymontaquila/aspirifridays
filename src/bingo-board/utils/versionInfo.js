@@ -21,7 +21,7 @@ function getCommitHash() {
 
 function getDotNetVersion() {
   // This would typically be set during build
-  return import.meta.env.VITE_DOTNET_VERSION || '9.0.7'
+  return import.meta.env.VITE_DOTNET_VERSION || '10.0'
 }
 
 function getAspireVersion() {
