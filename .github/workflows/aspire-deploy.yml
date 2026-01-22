@@ -16,6 +16,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: true
     steps:
       - uses: actions/checkout@v4
         with:
