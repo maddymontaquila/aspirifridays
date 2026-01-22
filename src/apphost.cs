@@ -1,12 +1,11 @@
 ﻿#pragma warning disable
-#:sdk Aspire.AppHost.Sdk@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Azure.AppContainers@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Azure.Redis@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Docker@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Redis@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.NodeJs@13.0.0-preview.1.25517.3
-#:package Aspire.Hosting.Yarp@13.0.0-preview.1.25517.3
-#:package CommunityToolkit.Aspire.Hosting.NodeJS.Extensions@9.7.0
+#:sdk Aspire.AppHost.Sdk@13.2.0-preview.1.26072.3
+#:package Aspire.Hosting.Azure.AppContainers@13.2.0-preview.1.26072.3
+#:package Aspire.Hosting.Azure.Redis@13.2.0-preview.1.26072.3
+#:package Aspire.Hosting.Docker@13.2.0-preview.1.26072.3
+#:package Aspire.Hosting.Redis@13.2.0-preview.1.26072.3
+#:package Aspire.Hosting.JavaScript@13.2.0-preview.1.26072.3
+#:package Aspire.Hosting.Yarp@13.2.0-preview.1.26072.3
 #:project ./BingoBoard.Admin
 #:property UserSecretsId=aspire-samples-bingoboard
 
@@ -50,7 +49,6 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
 if (builder.ExecutionContext.IsRunMode)
 {
     builder.AddViteApp("bingoboard-dev", "./bingo-board")
-        .WithNpmPackageInstallation()
         .WithReference(admin)
         .WaitFor(admin)
         .WithIconName("SerialPort");

@@ -47,7 +47,6 @@ builder.AddRedisDistributedCache(connectionName: "cache");
 builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
 builder.Services.AddScoped<IPasswordAuthService, PasswordAuthService>();
-builder.Services.AddSingleton<IVersionInfoService, VersionInfoService>();
 
 // Register background services
 builder.Services.AddHostedService<ApprovalCleanupService>();

@@ -9,14 +9,16 @@
       <BingoBoard />
     </main>
     <footer class="version-footer">
-      <div class="version-info">{{ versionString }}</div>
+      <a :href="commitUrl" target="_blank">{{ commitHash }}</a> ·
+      <a href="https://dot.net" target="_blank">.NET {{ dotnetVersion }}</a> ·
+      <a href="https://aspire.dev" target="_blank">Aspire {{ aspireVersion }}</a> ·
+      <a href="https://vitejs.dev" target="_blank">Vite {{ viteVersion }}</a>
     </footer>
   </div>
 </template>
 
 <script>
 import BingoBoard from './components/BingoBoard.vue'
-import { getVersionString } from './utils/versionInfo.js'
 
 export default {
   name: 'App',
@@ -24,26 +26,35 @@ export default {
     BingoBoard
   },
   data() {
+    const fullSha = import.meta.env.VITE_COMMIT_SHA || ''
     return {
-      versionString: getVersionString()
+      commitHash: fullSha.length >= 7 ? fullSha.substring(0, 7) : 'dev',
+      commitUrl: fullSha.length > 0 
+        ? `https://github.com/maddymontaquila/aspirifridays/commit/${fullSha}`
+        : 'https://github.com/maddymontaquila/aspirifridays',
+      dotnetVersion: import.meta.env.VITE_DOTNET_VERSION || 'dev',
+      aspireVersion: import.meta.env.VITE_ASPIRE_VERSION || 'dev',
+      viteVersion: import.meta.env.VITE_VERSION || 'dev'
     }
   }
 }
 </script>
 
 <style>
-/* App-specific styles are now handled by the global CSS modules */
-
 .version-footer {
   margin-top: 2rem;
   padding: 1rem 0;
   text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.75rem;
 }
 
-.version-info {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
-  font-family: 'Courier New', monospace;
+.version-footer a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+}
+
+.version-footer a:hover {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: underline;
 }
 </style>
