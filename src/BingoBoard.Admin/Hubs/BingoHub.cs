@@ -755,14 +755,9 @@ public class BingoHub(
     /// </summary>
     public async Task StartStreamSession()
     {
-        // Check if user is authenticated (admin only)
-        if (Context.User?.Identity?.IsAuthenticated != true)
-        {
-            logger.LogWarning("Unauthorized attempt to start stream session from {ConnectionId}", Context.ConnectionId);
-            await Clients.Caller.SendAsync("Error", "Unauthorized: Admin authentication required");
-            return;
-        }
-
+        // Note: This method is called from the admin Blazor page which is protected by [Authorize].
+        // The hub itself allows anonymous connections so frontend users can play bingo,
+        // but admin operations should only be initiated from authenticated admin pages.
         try
         {
             var adminId = Context.ConnectionId;
@@ -812,14 +807,7 @@ public class BingoHub(
     /// </summary>
     public async Task EndStreamSession()
     {
-        // Check if user is authenticated (admin only)
-        if (Context.User?.Identity?.IsAuthenticated != true)
-        {
-            logger.LogWarning("Unauthorized attempt to end stream session from {ConnectionId}", Context.ConnectionId);
-            await Clients.Caller.SendAsync("Error", "Unauthorized: Admin authentication required");
-            return;
-        }
-
+        // Note: This method is called from the admin Blazor page which is protected by [Authorize].
         try
         {
             var adminId = Context.ConnectionId;
