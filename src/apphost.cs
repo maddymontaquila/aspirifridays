@@ -13,10 +13,19 @@
 
 #pragma warning disable ASPIREACADOMAINS001
 
+using System.Reflection;
 using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 using Aspire.Hosting.Azure;
 using Microsoft.Extensions.Hosting;
+
+// Get version info programmatically
+var aspireAssembly = typeof(IDistributedApplicationBuilder).Assembly;
+var aspireVersion = aspireAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] 
+    ?? aspireAssembly.GetName().Version?.ToString(3) 
+    ?? "unknown";
+var dotnetVersion = Environment.Version.Major.ToString();
+var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "dev";
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -62,6 +71,8 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(migrations)
     .WaitFor(cache)
     .WaitForCompletion(migrations)
+    .WithEnvironment("COMMIT_SHA", commitSha)
+    .WithEnvironment("ASPIRE_VERSION", aspireVersion)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((infra, app) =>
     {
@@ -73,6 +84,9 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
 
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
+    .WithEnvironment("VITE_COMMIT_SHA", commitSha)
+    .WithEnvironment("VITE_DOTNET_VERSION", dotnetVersion)
+    .WithEnvironment("VITE_ASPIRE_VERSION", aspireVersion)
     .WithReference(admin)
     .WaitFor(admin);
 
