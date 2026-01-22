@@ -9,8 +9,14 @@
 #:project ./BingoBoard.Admin
 #:property UserSecretsId=aspire-samples-bingoboard
 
+using System.Reflection;
 using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
+
+// Get version info programmatically
+var aspireVersion = typeof(IDistributedApplicationBuilder).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+var dotnetVersion = Environment.Version.Major.ToString();
+var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "dev";
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -30,10 +36,8 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
     .WaitFor(cache)
     .WithEnvironment("Authentication__AdminPassword", password)
-    .WithEnvironment("COMMIT_SHA", builder.Configuration["COMMIT_SHA"] ?? Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "unknown")
-    .WithEnvironment("DOTNET_VERSION", builder.Configuration["DOTNET_VERSION"] ?? Environment.GetEnvironmentVariable("DOTNET_VERSION") ?? "10.0")
-    .WithEnvironment("ASPIRE_VERSION", builder.Configuration["ASPIRE_VERSION"] ?? Environment.GetEnvironmentVariable("ASPIRE_VERSION") ?? "13.0.0-preview.1")
-    .WithEnvironment("BUILD_TIME", builder.Configuration["BUILD_TIME"] ?? Environment.GetEnvironmentVariable("BUILD_TIME") ?? DateTime.UtcNow.ToString("ddd, dd MMM yyyy HH:mm:ss 'GMT'"))
+    .WithEnvironment("COMMIT_SHA", commitSha)
+    .WithEnvironment("ASPIRE_VERSION", aspireVersion)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((infra, app) =>
     {
@@ -61,9 +65,9 @@ builder.AddYarp("bingoboard")
         c.AddRoute("/bingohub/{**catch-all}", adminEndpoint);
     })
     .WithDockerfile("./bingo-board")
-    .WithBuildArg("VITE_COMMIT_SHA", builder.Configuration["COMMIT_SHA"] ?? Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "unknown")
-    .WithBuildArg("VITE_DOTNET_VERSION", builder.Configuration["DOTNET_VERSION"] ?? Environment.GetEnvironmentVariable("DOTNET_VERSION") ?? "10.0")
-    .WithBuildArg("VITE_ASPIRE_VERSION", builder.Configuration["ASPIRE_VERSION"] ?? Environment.GetEnvironmentVariable("ASPIRE_VERSION") ?? "13.0.0-preview.1")
+    .WithBuildArg("VITE_COMMIT_SHA", commitSha)
+    .WithBuildArg("VITE_DOTNET_VERSION", dotnetVersion)
+    .WithBuildArg("VITE_ASPIRE_VERSION", aspireVersion)
     .WithStaticFiles()
     .WaitFor(admin)
     .WithIconName("SerialPort")

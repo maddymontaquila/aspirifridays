@@ -26,10 +26,10 @@ export default {
     BingoBoard
   },
   data() {
-    const fullSha = import.meta.env.VITE_COMMIT_SHA || ''
+    const fullSha = import.meta.env.VITE_COMMIT_SHA || 'dev'
     return {
-      commitHash: fullSha.length >= 7 ? fullSha.substring(0, 7) : 'dev',
-      commitUrl: fullSha.length > 0 
+      commitHash: fullSha.length >= 7 && fullSha !== 'dev' ? fullSha.substring(0, 7) : 'dev',
+      commitUrl: fullSha.length > 0 && fullSha !== 'dev'
         ? `https://github.com/maddymontaquila/aspirifridays/commit/${fullSha}`
         : 'https://github.com/maddymontaquila/aspirifridays',
       dotnetVersion: import.meta.env.VITE_DOTNET_VERSION || 'dev',
