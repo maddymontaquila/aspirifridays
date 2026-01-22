@@ -14,7 +14,10 @@ using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 
 // Get version info programmatically
-var aspireVersion = typeof(IDistributedApplicationBuilder).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+var aspireAssembly = typeof(IDistributedApplicationBuilder).Assembly;
+var aspireVersion = aspireAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] 
+    ?? aspireAssembly.GetName().Version?.ToString(3) 
+    ?? "unknown";
 var dotnetVersion = Environment.Version.Major.ToString();
 var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "dev";
 
@@ -53,6 +56,9 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
 if (builder.ExecutionContext.IsRunMode)
 {
     builder.AddViteApp("bingoboard-dev", "./bingo-board")
+        .WithEnvironment("VITE_COMMIT_SHA", commitSha)
+        .WithEnvironment("VITE_DOTNET_VERSION", dotnetVersion)
+        .WithEnvironment("VITE_ASPIRE_VERSION", aspireVersion)
         .WithReference(admin)
         .WaitFor(admin)
         .WithIconName("SerialPort");
