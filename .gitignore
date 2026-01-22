@@ -88,6 +88,6 @@ REFACTORING_SUMMARY.md
 
 appsettings.Development.json
 
+.dotnet
 aspire-output/
 .playwright-mcp/
-.dotnet

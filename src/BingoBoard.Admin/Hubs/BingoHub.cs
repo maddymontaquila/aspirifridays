@@ -751,6 +751,174 @@ public class BingoHub(
     }
 
     /// <summary>
+    /// Admin starts a new stream session
+    /// </summary>
+    public async Task StartStreamSession()
+    {
+        // Note: This method is called from the admin Blazor page which is protected by [Authorize].
+        // The hub itself allows anonymous connections so frontend users can play bingo,
+        // but admin operations should only be initiated from authenticated admin pages.
+        try
+        {
+            var adminId = Context.ConnectionId;
+            logger.LogInformation("Admin {AdminId} starting stream session", adminId);
+
+            // Reset all globally checked squares from previous session
+            await bingoService.ResetAllGloballyCheckedSquaresAsync();
+            
+            // Clear any pending approvals from previous session
+            await bingoService.ClearAllPendingApprovalsAsync();
+
+            // Enable live mode
+            await bingoService.SetLiveModeAsync(true);
+
+            // Broadcast to all clients
+            await Clients.All.SendAsync("StreamSessionStarted", new 
+            { 
+                Message = "Stream session started! Squares have been reset for the new stream.",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await Clients.All.SendAsync("LiveModeChanged", new 
+            { 
+                IsLiveMode = true,
+                Message = "Live stream started - approval required for square marking",
+                Timestamp = DateTime.UtcNow
+            });
+
+            // Send reset notification to all clients to clear their boards
+            await Clients.All.SendAsync("BoardReset", new 
+            { 
+                Message = "Board reset for new stream session",
+                Timestamp = DateTime.UtcNow
+            });
+
+            logger.LogInformation("Stream session started by admin {AdminId}", adminId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error starting stream session");
+            await Clients.Caller.SendAsync("Error", "Failed to start stream session");
+        }
+    }
+
+    /// <summary>
+    /// Admin ends the current stream session
+    /// </summary>
+    public async Task EndStreamSession()
+    {
+        // Note: This method is called from the admin Blazor page which is protected by [Authorize].
+        try
+        {
+            var adminId = Context.ConnectionId;
+            logger.LogInformation("Admin {AdminId} ending stream session", adminId);
+
+            // Reset all globally checked squares
+            await bingoService.ResetAllGloballyCheckedSquaresAsync();
+            
+            // Clear any pending approvals
+            await bingoService.ClearAllPendingApprovalsAsync();
+
+            // Disable live mode (back to free play)
+            await bingoService.SetLiveModeAsync(false);
+
+            // Broadcast to all clients
+            await Clients.All.SendAsync("StreamSessionEnded", new 
+            { 
+                Message = "Stream session ended! Returning to free play mode.",
+                Timestamp = DateTime.UtcNow
+            });
+
+            await Clients.All.SendAsync("LiveModeChanged", new 
+            { 
+                IsLiveMode = false,
+                Message = "Stream ended - free play mode activated!",
+                Timestamp = DateTime.UtcNow
+            });
+
+            // Send reset notification to all clients
+            await Clients.All.SendAsync("BoardReset", new 
+            { 
+                Message = "Board reset after stream session",
+                Timestamp = DateTime.UtcNow
+            });
+
+            logger.LogInformation("Stream session ended by admin {AdminId}", adminId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error ending stream session");
+            await Clients.Caller.SendAsync("Error", "Failed to end stream session");
+        }
+    }
+
+    /// <summary>
+    /// Client requests to catch up with current globally approved squares
+    /// </summary>
+    public async Task RequestCatchUp()
+    {
+        try
+        {
+            var connectionId = Context.ConnectionId;
+            var persistentClientId = await clientService.GetPersistentClientIdAsync(connectionId);
+            
+            if (string.IsNullOrEmpty(persistentClientId))
+            {
+                logger.LogWarning("No persistent client ID found for connection {ConnectionId} during catch-up", connectionId);
+                await Clients.Caller.SendAsync("Error", "Client not properly registered");
+                return;
+            }
+
+            logger.LogInformation("Client {ConnectionId} (persistent: {PersistentClientId}) requesting catch-up", 
+                connectionId, persistentClientId);
+
+            // Get all globally checked squares
+            var globallyCheckedSquares = await bingoService.GetGloballyCheckedSquaresAsync();
+
+            // Get the client's bingo set
+            var bingoSet = await bingoService.GetClientBingoSetAsync(persistentClientId);
+            
+            if (bingoSet == null)
+            {
+                await Clients.Caller.SendAsync("Error", "No bingo set found - please get a new board first");
+                return;
+            }
+
+            // Update each square that is globally checked
+            int updatedCount = 0;
+            foreach (var squareId in globallyCheckedSquares)
+            {
+                var success = await bingoService.UpdateSquareStatusAsync(persistentClientId, squareId, true);
+                if (success)
+                {
+                    updatedCount++;
+                }
+            }
+
+            // Get the updated bingo set
+            var updatedBingoSet = await bingoService.GetClientBingoSetAsync(persistentClientId);
+
+            // Send the updated bingo set to the client
+            await Clients.Caller.SendAsync("CatchUpCompleted", new 
+            { 
+                BingoSet = updatedBingoSet,
+                UpdatedSquaresCount = updatedCount,
+                GloballyCheckedSquares = globallyCheckedSquares,
+                Message = $"Caught up with {updatedCount} approved squares!",
+                Timestamp = DateTime.UtcNow
+            });
+
+            logger.LogInformation("Client {ConnectionId} caught up with {Count} globally checked squares", 
+                connectionId, updatedCount);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error processing catch-up request for client {ConnectionId}", Context.ConnectionId);
+            await Clients.Caller.SendAsync("Error", "Failed to catch up");
+        }
+    }
+
+    /// <summary>
     /// Get current live mode state
     /// </summary>
     public async Task GetLiveMode()

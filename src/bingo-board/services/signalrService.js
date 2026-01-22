@@ -149,6 +149,26 @@ export class SignalRService {
         this.notifyListeners('liveModeChanged', update)
       })
 
+      this.connection.on('StreamSessionStarted', (update) => {
+        console.log('Stream session started:', update)
+        this.notifyListeners('streamSessionStarted', update)
+      })
+
+      this.connection.on('StreamSessionEnded', (update) => {
+        console.log('Stream session ended:', update)
+        this.notifyListeners('streamSessionEnded', update)
+      })
+
+      this.connection.on('BoardReset', (update) => {
+        console.log('Board reset:', update)
+        this.notifyListeners('boardReset', update)
+      })
+
+      this.connection.on('CatchUpCompleted', (response) => {
+        console.log('Catch-up completed:', response)
+        this.notifyListeners('catchUpCompleted', response)
+      })
+
       this.connection.on('Error', (error) => {
         console.error('SignalR error:', error)
         this.notifyListeners('error', error)
@@ -271,6 +291,22 @@ export class SignalRService {
       await this.connection.invoke('GetPendingApprovals')
     } catch (error) {
       console.error('Failed to get pending approvals:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Request to catch up with currently approved squares during live stream
+   */
+  async requestCatchUp() {
+    if (!this.isConnected || !this.connection) {
+      throw new Error('Not connected to SignalR hub')
+    }
+    
+    try {
+      await this.connection.invoke('RequestCatchUp')
+    } catch (error) {
+      console.error('Failed to request catch-up:', error)
       throw error
     }
   }

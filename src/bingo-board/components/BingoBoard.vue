@@ -81,6 +81,16 @@
               : 'No live stream in progress - mark squares freely!' 
             }}
           </p>
+          
+          <!-- Catch Up Button (only in live mode) -->
+          <button v-if="isLiveMode" 
+                  @click="requestCatchUp" 
+                  :disabled="!isConnected || isCatchingUp"
+                  class="btn btn--catch-up"
+                  aria-label="Sync your board with currently approved squares">
+            <i :class="isCatchingUp ? 'bi bi-arrow-clockwise spinning' : 'bi bi-arrow-repeat'"></i>
+            <span>{{ isCatchingUp ? 'Syncing...' : 'Sync My Board' }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -120,8 +130,9 @@ export default {
       error: null,
       pendingSquares: new Set(), // Track squares that are pending approval
       persistentClientId: null,
-      isLiveMode: true, // Default to live mode, will be updated from server
-      liveModeMessage: ''
+      isLiveMode: false, // Default to free play mode, will be updated from server
+      liveModeMessage: '',
+      isCatchingUp: false // Track catch-up request state
     }
   },
   computed: {
@@ -165,6 +176,12 @@ export default {
         
         // Live mode event listener
         signalRService.addEventListener('liveModeChanged', this.onLiveModeChanged)
+        
+        // Stream session event listeners
+        signalRService.addEventListener('streamSessionStarted', this.onStreamSessionStarted)
+        signalRService.addEventListener('streamSessionEnded', this.onStreamSessionEnded)
+        signalRService.addEventListener('boardReset', this.onBoardReset)
+        signalRService.addEventListener('catchUpCompleted', this.onCatchUpCompleted)
 
         // Connect to SignalR hub
         await signalRService.connect()
@@ -555,6 +572,80 @@ export default {
       this.showGlobalUpdateNotification(update.message)
       
       console.log(`Mode changed to: ${this.isLiveMode ? 'Live Stream' : 'Free Play'}`)
+    },
+
+    // Stream session event handlers
+    onStreamSessionStarted(update) {
+      console.log('Stream session started:', update)
+      this.isLiveMode = true
+      this.pendingSquares.clear()
+      this.showGlobalUpdateNotification(update.message || 'Stream session started!')
+    },
+
+    onStreamSessionEnded(update) {
+      console.log('Stream session ended:', update)
+      this.isLiveMode = false
+      this.pendingSquares.clear()
+      this.showGlobalUpdateNotification(update.message || 'Stream session ended!')
+    },
+
+    onBoardReset(update) {
+      console.log('Board reset:', update)
+      
+      // Reset all marked squares (except free space)
+      this.currentBoard.forEach(square => {
+        if (square.type !== 'free') {
+          square.marked = false
+        }
+      })
+      
+      // Clear pending squares
+      this.pendingSquares.clear()
+      
+      // Reset bingo state
+      this.bingoLines = []
+      this.showInitialCelebration = true
+      
+      // Save the reset state
+      this.saveState()
+      
+      this.showGlobalUpdateNotification(update.message || 'Board has been reset')
+    },
+
+    // Catch-up functionality
+    async requestCatchUp() {
+      if (!this.isConnected || this.isCatchingUp) {
+        return
+      }
+
+      try {
+        this.isCatchingUp = true
+        await signalRService.requestCatchUp()
+        console.log('Catch-up request sent')
+      } catch (error) {
+        console.error('Failed to request catch-up:', error)
+        this.error = `Failed to catch up: ${error.message}`
+        this.isCatchingUp = false
+      }
+    },
+
+    onCatchUpCompleted(response) {
+      console.log('Catch-up completed:', response)
+      this.isCatchingUp = false
+      
+      // Update the bingo set with caught-up squares (SignalR sends PascalCase)
+      const bingoSet = response.BingoSet || response.bingoSet
+      if (bingoSet) {
+        this.currentBingoSet = bingoSet
+        this.currentBoard = this.convertServerBingoSetToBoard(bingoSet)
+        this.checkForBingo()
+        this.saveState()
+      }
+      
+      // Show success notification
+      const count = response.UpdatedSquaresCount || response.updatedSquaresCount || 0
+      const message = response.Message || response.message || `Synced ${count} squares!`
+      this.showGlobalUpdateNotification(message)
     }
   },
   
@@ -580,6 +671,12 @@ export default {
     
     // Clean up live mode event listener
     signalRService.removeEventListener('liveModeChanged', this.onLiveModeChanged)
+    
+    // Clean up stream session event listeners
+    signalRService.removeEventListener('streamSessionStarted', this.onStreamSessionStarted)
+    signalRService.removeEventListener('streamSessionEnded', this.onStreamSessionEnded)
+    signalRService.removeEventListener('boardReset', this.onBoardReset)
+    signalRService.removeEventListener('catchUpCompleted', this.onCatchUpCompleted)
     
     // Don't disconnect SignalR as other components might be using it
   }
@@ -757,5 +854,40 @@ button:disabled {
   50% {
     opacity: 0.6;
   }
+}
+
+/* Catch-up button styles */
+.btn--catch-up {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn--catch-up:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn--catch-up:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--catch-up .spinning {
+  animation: spin 1s linear infinite;
 }
 </style>

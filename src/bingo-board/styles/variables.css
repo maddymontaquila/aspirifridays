@@ -57,7 +57,7 @@
   --transition-transform: transform 0.3s ease;
   
   /* Grid */
-  --grid-size: 512px;
-  --grid-gap: 8px;
+  --grid-size: 600px;
+  --grid-gap: 10px;
   --square-size: calc((var(--grid-size) - 40px) / 5);
 }

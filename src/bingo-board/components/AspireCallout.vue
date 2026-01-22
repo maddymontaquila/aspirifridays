@@ -2,7 +2,7 @@
   <div class="aspire-callout glass-card">
     <h3>New to Aspire?</h3>
     <p>Streamline your dev loop with Aspire!</p>
-    <a href="https://aka.ms/dotnet/aspire" 
+    <a href="https://aspire.dev/" 
        target="_blank" 
        rel="noopener noreferrer" 
        class="btn btn--secondary btn--link">
