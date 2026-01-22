@@ -90,3 +90,4 @@ appsettings.Development.json
 
 aspire-output/
 .playwright-mcp/
+.dotnet
