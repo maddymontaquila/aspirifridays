@@ -4,21 +4,25 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Aspire packages -->
-    <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Redis" Version="13.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.1.0-preview.1.25616.3" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Sql" Version="13.1.0" />
-    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Yarp" Version="13.1.0" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.1.0-preview.1.25616.3" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.1.0" />
+    <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.2.0-preview.1.26072.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.2.0-preview.1.26072.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Redis" Version="13.2.0-preview.1.26072.3" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.2.0-preview.1.26072.3" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.2.0-preview.1.26072.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Sql" Version="13.2.0-preview.1.26072.4" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.2.0-preview.1.26072.4" />
+    <PackageVersion Include="Aspire.Hosting.Yarp" Version="13.2.0-preview.1.26072.3" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.2.0-preview.1.26072.4" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.2.0-preview.1.26072.4" />
     <!-- Microsoft packages -->
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageVersion>
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />

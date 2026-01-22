@@ -1,4 +1,4 @@
-﻿#:sdk Aspire.AppHost.Sdk@13.1.0
+#:sdk Aspire.AppHost.Sdk@13.2.0-preview.1.26072.3
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
@@ -13,9 +13,19 @@
 
 #pragma warning disable ASPIREACADOMAINS001
 
+using System.Reflection;
 using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 using Aspire.Hosting.Azure;
+using Microsoft.Extensions.Hosting;
+
+// Get version info programmatically
+var aspireAssembly = typeof(IDistributedApplicationBuilder).Assembly;
+var aspireVersion = aspireAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] 
+    ?? aspireAssembly.GetName().Version?.ToString(3) 
+    ?? "unknown";
+var dotnetVersion = Environment.Version.Major.ToString();
+var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "dev";
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -61,6 +71,8 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(migrations)
     .WaitFor(cache)
     .WaitForCompletion(migrations)
+    .WithEnvironment("COMMIT_SHA", commitSha)
+    .WithEnvironment("ASPIRE_VERSION", aspireVersion)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((infra, app) =>
     {
@@ -72,6 +84,9 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
 
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
+    .WithEnvironment("VITE_COMMIT_SHA", commitSha)
+    .WithEnvironment("VITE_DOTNET_VERSION", dotnetVersion)
+    .WithEnvironment("VITE_ASPIRE_VERSION", aspireVersion)
     .WithReference(admin)
     .WaitFor(admin);
 
@@ -99,35 +114,39 @@ builder.AddYarp("bingoboard")
     })
     .WithExplicitStart();
 
+var launchProfile = builder.Configuration["DOTNET_LAUNCH_PROFILE"];
+if (!string.IsNullOrWhiteSpace(launchProfile) && 
+    string.Equals(launchProfile, "maui", StringComparison.OrdinalIgnoreCase))
+{
+    var publicDevTunnel = builder.AddDevTunnel("devtunnel-public")
+        .WithAnonymousAccess() // All ports on this tunnel default to allowing anonymous access
+        .WithReference(admin.GetEndpoint("https"));
 
-var publicDevTunnel = builder.AddDevTunnel("devtunnel-public")
-    .WithAnonymousAccess() // All ports on this tunnel default to allowing anonymous access
-    .WithReference(admin.GetEndpoint("https"));
 
+    var mauiapp = builder.AddMauiProject("mauiapp", @"BingoBoard.MauiHybrid/BingoBoard.MauiHybrid.csproj");
 
-var mauiapp = builder.AddMauiProject("mauiapp", @"BingoBoard.MauiHybrid/BingoBoard.MauiHybrid.csproj");
+    // Add iOS simulator with default simulator (uses running or default simulator)
+    var ios = mauiapp.AddiOSSimulator()
+        .ExcludeFromManifest()
+        .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
+        .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
 
-// Add iOS simulator with default simulator (uses running or default simulator)
-var ios = mauiapp.AddiOSSimulator()
-    .ExcludeFromManifest()
-    .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
-    .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
+    // Add Android emulator with default emulator (uses running or default emulator)
+    mauiapp.AddAndroidEmulator()
+        .ExcludeFromManifest()
+        .WithParentRelationship(mauiapp)
+        .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
+        .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
 
-// Add Android emulator with default emulator (uses running or default emulator)
-mauiapp.AddAndroidEmulator()
-    .ExcludeFromManifest()
-    .WithParentRelationship(mauiapp)
-    .WithOtlpDevTunnel() // Needed to get the OpenTelemetry data to "localhost"
-    .WithReference(admin, publicDevTunnel); // Needs a dev tunnel to reach "localhost"
+    // Add Mac Catalyst desktop
+    mauiapp.AddMacCatalystDevice()
+        .ExcludeFromManifest()
+        .WithReference(admin);
 
-// Add Mac Catalyst desktop
-mauiapp.AddMacCatalystDevice()
-    .ExcludeFromManifest()
-    .WithReference(admin);
-
-// Add Windows desktop
-mauiapp.AddWindowsDevice()
-    .ExcludeFromManifest()
-    .WithReference(admin);
+    // Add Windows desktop
+    mauiapp.AddWindowsDevice()
+        .ExcludeFromManifest()
+        .WithReference(admin);
+}
 
 builder.Build().Run();
