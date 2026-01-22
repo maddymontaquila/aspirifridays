@@ -3,6 +3,7 @@
 @attribute [Authorize]
 @using BingoBoard.Data
 @using Microsoft.EntityFrameworkCore
+@using System.Text.RegularExpressions
 @inject ApplicationDbContext DbContext
 @inject ILogger<SquaresManagement> Logger
 
@@ -208,6 +209,18 @@
     private string editLabel = "";
     private string? editType;
 
+    private static string GenerateSlug(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return "";
+        
+        // Convert to lowercase, replace whitespace with hyphens, remove non-alphanumeric except hyphens
+        var slug = input.ToLowerInvariant().Trim();
+        slug = Regex.Replace(slug, @"\s+", "-");
+        slug = Regex.Replace(slug, @"[^a-z0-9\-]", "");
+        slug = Regex.Replace(slug, @"-+", "-"); // collapse multiple hyphens
+        return slug.Trim('-');
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadSquares();
@@ -258,7 +271,7 @@
 
             var entity = new BingoSquareEntity
             {
-                Id = newSquare.Id.ToLowerInvariant().Replace(" ", "-"),
+                Id = GenerateSlug(newSquare.Id),
                 Label = newSquare.Label,
                 Type = newSquare.Type,
                 IsActive = true,

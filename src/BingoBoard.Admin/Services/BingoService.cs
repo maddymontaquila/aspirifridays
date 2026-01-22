@@ -12,18 +12,10 @@ namespace BingoBoard.Admin.Services;
 /// </summary>
 public class BingoService(IDistributedCache cache, ILogger<BingoService> logger, IClientConnectionService clientService, ApplicationDbContext dbContext) : IBingoService
 {
-    private List<BingoSquare>? _cachedSquares;
-
     public async Task<List<BingoSquare>> GetAllSquaresAsync()
     {
         try
         {
-            // Use cached squares if available
-            if (_cachedSquares != null)
-            {
-                return _cachedSquares.ToList();
-            }
-
             // Load from database
             var dbSquares = await dbContext.BingoSquares
                 .Where(s => s.IsActive)
@@ -33,14 +25,12 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
             if (dbSquares.Any())
             {
                 logger.LogInformation("Loaded {Count} squares from database", dbSquares.Count);
-                _cachedSquares = dbSquares.Select(s => new BingoSquare
+                return dbSquares.Select(s => new BingoSquare
                 {
                     Id = s.Id,
                     Label = s.Label,
                     Type = s.Type ?? "default"
                 }).ToList();
-                
-                return _cachedSquares.ToList();
             }
 
             // Fallback to static list if database is empty
@@ -688,7 +678,7 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
                 return false;
             }
 
-            return bool.TryParse(liveModeStr, out bool isLiveMode) ? isLiveMode : false;
+            return bool.TryParse(liveModeStr, out bool isLiveMode) && isLiveMode;
         }
         catch (Exception ex)
         {

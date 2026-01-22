@@ -100,7 +100,9 @@ builder.AddYarp("bingoboard")
     })
     .WithExplicitStart();
 
-if (builder.Configuration["DOTNET_LAUNCH_PROFILE"] == "maui")
+var launchProfile = builder.Configuration["DOTNET_LAUNCH_PROFILE"];
+if (!string.IsNullOrWhiteSpace(launchProfile) && 
+    string.Equals(launchProfile, "maui", StringComparison.OrdinalIgnoreCase))
 {
     var publicDevTunnel = builder.AddDevTunnel("devtunnel-public")
         .WithAnonymousAccess() // All ports on this tunnel default to allowing anonymous access

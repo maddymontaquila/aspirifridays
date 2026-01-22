@@ -755,6 +755,14 @@ public class BingoHub(
     /// </summary>
     public async Task StartStreamSession()
     {
+        // Check if user is authenticated (admin only)
+        if (Context.User?.Identity?.IsAuthenticated != true)
+        {
+            logger.LogWarning("Unauthorized attempt to start stream session from {ConnectionId}", Context.ConnectionId);
+            await Clients.Caller.SendAsync("Error", "Unauthorized: Admin authentication required");
+            return;
+        }
+
         try
         {
             var adminId = Context.ConnectionId;
@@ -804,6 +812,14 @@ public class BingoHub(
     /// </summary>
     public async Task EndStreamSession()
     {
+        // Check if user is authenticated (admin only)
+        if (Context.User?.Identity?.IsAuthenticated != true)
+        {
+            logger.LogWarning("Unauthorized attempt to end stream session from {ConnectionId}", Context.ConnectionId);
+            await Clients.Caller.SendAsync("Error", "Unauthorized: Admin authentication required");
+            return;
+        }
+
         try
         {
             var adminId = Context.ConnectionId;
