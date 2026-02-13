@@ -1,9 +1,9 @@
-#:sdk Aspire.AppHost.Sdk@13.2.0-preview.1.26072.3
+﻿#:sdk Aspire.AppHost.Sdk@13.2.0-preview.1.26106.2
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
 #:package Aspire.Hosting.Redis
-#:package Aspire.Hosting.Azure.Sql
+#:package Aspire.Hosting.PostgreSQL
 #:package Aspire.Hosting.JavaScript
 #:package Aspire.Hosting.Yarp
 #:package Aspire.Hosting.Maui
@@ -11,10 +11,9 @@
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
 
-#pragma warning disable ASPIREACADOMAINS001
+#pragma warning disable
 
 using System.Reflection;
-using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 using Aspire.Hosting.Azure;
 using Microsoft.Extensions.Hosting;
@@ -46,18 +45,11 @@ var cache = builder.AddRedis("cache")
         app.Template.Scale.MaxReplicas = 1;
     });
 
-var sql = builder.AddAzureSqlServer("sql")
-    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent))
-    .ConfigureInfrastructure(infra =>
-    {
-        var sqlServer = infra.GetProvisionableResources().OfType<Azure.Provisioning.Sql.SqlServer>().Single();
-        var sqlDatabase = infra.GetProvisionableResources().OfType<Azure.Provisioning.Sql.SqlDatabase>().Single();
-        
-        // Set FreeLimitExhaustionBehavior to BillOverUsage to match existing resource
-        sqlDatabase.FreeLimitExhaustionBehavior = Azure.Provisioning.Sql.FreeLimitExhaustionBehavior.BillOverUsage;
-    });
+var postgres = builder.AddPostgres("postgres")
+    .WithLifetime(ContainerLifetime.Persistent);
 
-var db = sql.AddDatabase("db");
+var db = postgres.AddDatabase("db")
+    .WithPostgresMcp();
 
 var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
     .WithEnvironment("Authentication__AdminPassword", password)
