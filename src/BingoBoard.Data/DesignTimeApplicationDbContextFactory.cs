@@ -16,7 +16,7 @@ namespace BingoBoard.Data;
 /// </remarks>
 public class DesignTimeApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
-    private const string DesignTimeDbConnectionString = "Server=(localdb)\\mssqllocaldb;Database=TicketDb;Trusted_Connection=true";
+    private const string DesignTimeDbConnectionString = "Host=localhost;Database=TicketDb;Username=postgres;Password=postgres";
 
     public ApplicationDbContext CreateDbContext(string[] args)
     {
@@ -25,7 +25,7 @@ public class DesignTimeApplicationDbContextFactory : IDesignTimeDbContextFactory
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         optionsBuilder
-            .UseSqlServer(DesignTimeDbConnectionString)
+            .UseNpgsql(DesignTimeDbConnectionString)
             .UseApplicationServiceProvider(services.BuildServiceProvider());
 
         return new ApplicationDbContext(optionsBuilder.Options);
