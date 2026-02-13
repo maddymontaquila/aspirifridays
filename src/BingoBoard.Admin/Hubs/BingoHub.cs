@@ -46,6 +46,15 @@ public class BingoHub(
 
             logger.LogInformation("Sent bingo set {BingoSetId} to client {ConnectionId}", 
                 bingoSet.Id, connectionId);
+
+            // Send current live mode state so the client doesn't default to free play
+            var isLiveMode = await bingoService.GetLiveModeAsync();
+            await Clients.Caller.SendAsync("LiveModeChanged", new
+            {
+                IsLiveMode = isLiveMode,
+                Message = isLiveMode ? "Live stream mode is active - approval required for square marking" : "Free play mode - mark squares freely!",
+                Timestamp = DateTime.UtcNow
+            });
         }
         catch (Exception ex)
         {
@@ -119,6 +128,15 @@ public class BingoHub(
                 logger.LogInformation("Sent new bingo set {BingoSetId} to client {ConnectionId} with persistent ID {PersistentClientId}", 
                     newBingoSet.Id, connectionId, clientId);
             }
+
+            // Send current live mode state so the client doesn't default to free play
+            var isLiveMode = await bingoService.GetLiveModeAsync();
+            await Clients.Caller.SendAsync("LiveModeChanged", new
+            {
+                IsLiveMode = isLiveMode,
+                Message = isLiveMode ? "Live stream mode is active - approval required for square marking" : "Free play mode - mark squares freely!",
+                Timestamp = DateTime.UtcNow
+            });
         }
         catch (Exception ex)
         {
