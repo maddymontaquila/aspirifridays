@@ -92,3 +92,6 @@ appsettings.Development.json
 aspire-output/
 .playwright-mcp/
 .playwright-cli/
+
+# Auto-generated Aspire TypeScript SDK
+.modules/
