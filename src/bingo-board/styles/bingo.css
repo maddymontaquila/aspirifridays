@@ -144,9 +144,10 @@
 }
 
 .bingo-celebration-area {
-  height: 80px;
+  min-height: 80px;
   margin-bottom: var(--spacing-lg);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
