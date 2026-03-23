@@ -1,0 +1,13 @@
+name: aspireconf-bingo
+region: nyc
+static_sites:
+  - name: bingo
+    github:
+      repo: maddymontaquila/aspirifridays
+      branch: aspireconf
+      deploy_on_push: true
+    source_dir: src/bingo-board
+    build_command: npm install && npm run build
+    output_dir: dist
+    environment_slug: node-js
+    catchall_document: index.html

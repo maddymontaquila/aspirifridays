@@ -1,21 +1,28 @@
 ﻿#:sdk Aspire.AppHost.Sdk@13.2.0-preview.1.26106.2
+// NOTE: Backend services commented out for #AspireConf frontend-only bingo mode
+/* Backend packages - not needed for frontend-only mode
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
 #:package Aspire.Hosting.Redis
 #:package Aspire.Hosting.PostgreSQL
+*/
 #:package Aspire.Hosting.JavaScript
+/* Backend packages - not needed for frontend-only mode
 #:package Aspire.Hosting.Yarp
 #:package Aspire.Hosting.Maui
 #:package Aspire.Hosting.DevTunnels
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
+*/
 
 #pragma warning disable
 
 using System.Reflection;
+/* Backend usings - not needed for frontend-only mode
 using Azure.Provisioning.AppContainers;
 using Aspire.Hosting.Azure;
+*/
 using Microsoft.Extensions.Hosting;
 
 // Get version info programmatically
@@ -29,6 +36,8 @@ var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "dev";
 var builder = DistributedApplication.CreateBuilder(args);
 
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
+
+/* Backend infrastructure - commented out for #AspireConf frontend-only bingo mode
 
 builder.AddAzureContainerAppEnvironment("env");
 
@@ -74,13 +83,14 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
         app.ConfigureCustomDomain(adminDomain, adminCertName);
     });
 
+*/
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithEnvironment("VITE_COMMIT_SHA", commitSha)
     .WithEnvironment("VITE_DOTNET_VERSION", dotnetVersion)
-    .WithEnvironment("VITE_ASPIRE_VERSION", aspireVersion)
-    .WithReference(admin)
-    .WaitFor(admin);
+    .WithEnvironment("VITE_ASPIRE_VERSION", aspireVersion);
+
+/* Yarp reverse proxy and MAUI - commented out for #AspireConf frontend-only bingo mode
 
 builder.AddYarp("bingoboard")
     .WithConfiguration(c =>
@@ -140,5 +150,7 @@ if (!string.IsNullOrWhiteSpace(launchProfile) &&
         .ExcludeFromManifest()
         .WithReference(admin);
 }
+
+*/
 
 builder.Build().Run();

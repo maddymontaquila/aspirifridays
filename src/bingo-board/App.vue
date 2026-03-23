@@ -2,17 +2,16 @@
   <div class="app">
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <header>
-      <h1>AspiriFridays Bingo</h1>
-      <p class="subheading">Follow along on <a href="https://youtube.com/@aspiredotdev" target="_blank" rel="noopener noreferrer">youtube.com/@aspiredotdev</a></p>
+      <h1>#AspireConf Bingo</h1>
+      <p class="subheading">Watch live on <a href="https://www.youtube.com/watch?v=6j61K9Sna2M" target="_blank" rel="noopener noreferrer">YouTube</a> · <a href="https://conf.aspire.dev" target="_blank" rel="noopener noreferrer">conf.aspire.dev</a></p>
     </header>
     <main id="main-content">
       <BingoBoard />
     </main>
     <footer class="version-footer">
-      <a :href="commitUrl" target="_blank">{{ commitHash }}</a> ·
-      <a href="https://dot.net" target="_blank">.NET {{ dotnetVersion }}</a> ·
-      <a href="https://aspire.dev" target="_blank">Aspire {{ aspireVersion }}</a> ·
-      <a href="https://vitejs.dev" target="_blank">Vite {{ viteVersion }}</a>
+      <a href="https://github.com/maddymontaquila/aspirifridays/tree/aspireconf" target="_blank">aspireconf</a> ·
+      <a href="https://aspire.dev" target="_blank">Aspire 13.2</a> ·
+      <a href="https://vitejs.dev" target="_blank">Vite 6.3</a>
     </footer>
   </div>
 </template>
@@ -26,16 +25,7 @@ export default {
     BingoBoard
   },
   data() {
-    const fullSha = import.meta.env.VITE_COMMIT_SHA || 'dev'
-    return {
-      commitHash: fullSha.length >= 7 && fullSha !== 'dev' ? fullSha.substring(0, 7) : 'dev',
-      commitUrl: fullSha.length > 0 && fullSha !== 'dev'
-        ? `https://github.com/maddymontaquila/aspirifridays/commit/${fullSha}`
-        : 'https://github.com/maddymontaquila/aspirifridays',
-      dotnetVersion: import.meta.env.VITE_DOTNET_VERSION || 'dev',
-      aspireVersion: import.meta.env.VITE_ASPIRE_VERSION || 'dev',
-      viteVersion: import.meta.env.VITE_VERSION || 'dev'
-    }
+    return {}
   }
 }
 </script>

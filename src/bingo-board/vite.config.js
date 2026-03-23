@@ -16,14 +16,6 @@ export default defineConfig({
     'import.meta.env.VITE_VERSION': JSON.stringify(viteVersion)
   },
   server: {
-    proxy: {
-      // Proxy SignalR hub to the admin service
-      '/bingohub': {
-        target: process.env.services__boardadmin__https__0 || process.env.services__boardadmin__http__0,
-        changeOrigin: true,
-        secure: false,
-        ws: true // Enable WebSocket proxying for SignalR
-      }
-    }
+    // No backend proxy needed — frontend-only mode for #AspireConf
   }
 })
