@@ -3,15 +3,17 @@
     "aspire": {
       "command": "aspire",
       "args": [
-        "mcp",
-        "start"
+        "agent",
+        "mcp"
       ]
     },
     "playwright": {
       "command": "npx",
       "args": [
         "-y",
-        "@playwright/mcp@latest"
+        "@playwright/mcp@latest",
+        "--browser",
+        "msedge-beta"
       ]
     }
   }

@@ -1,3 +1,8 @@
+---
+name: aspire
+description: "**WORKFLOW SKILL** - Orchestrates Aspire applications using the Aspire CLI and MCP tools for running, debugging, and managing distributed apps. USE FOR: aspire run, aspire stop, start aspire app, check aspire resources, list aspire integrations, debug aspire issues, view aspire logs, add aspire resource, aspire dashboard, update aspire apphost. DO NOT USE FOR: non-Aspire .NET apps (use dotnet CLI), container-only deployments (use docker/podman), Azure deployment after local testing (use azure-deploy skill). INVOKES: Aspire MCP tools (list_resources, list_integrations, list_structured_logs, get_doc, search_docs), bash for CLI commands. FOR SINGLE OPERATIONS: Use Aspire MCP tools directly for quick resource status or doc lookups."
+---
+
 # Aspire Skill
 
 This repository is set up to use Aspire. Aspire is an orchestrator for the entire application and will take care of configuring dependencies, building, and running the application. The resources that make up the application are defined in `apphost.cs` including application code and external dependencies.
@@ -11,32 +16,31 @@ This repository is set up to use Aspire. Aspire is an orchestrator for the entir
 
 ## Running Aspire in agent environments
 
-Agent environments may terminate foreground processes when a command finishes. Therefore:
+Agent environments may terminate foreground processes when a command finishes. Use detached mode:
 
-- NEVER run `aspire run` in the foreground.
-- ALWAYS start it detached with stdout/stderr redirected to a log file.
-- Write the launched process id to `.aspire/aspire.pid`.
-- Before calling `curl` or running tests, wait until the app is ready.
+```bash
+aspire run --detach --isolated
+```
+
+This starts the AppHost in the background and returns immediately. The CLI will:
+- Automatically stop any existing running instance before starting a new one
+- Display a summary with the Dashboard URL and resource endpoints
+
+### Stopping the application
+
+To stop a running AppHost:
+
+```bash
+aspire stop
+```
+
+This will scan for running AppHosts and stop them gracefully.
 
 ### Relaunch rules
 
-- If AppHost code changes, `aspire run` MUST be relaunched.
-- Relaunching is safe: starting a new instance will cause the previous instance to stop automatically.
+- If AppHost code changes, run `aspire run --detach` again to restart with the new code.
+- Relaunching is safe: starting a new instance will automatically stop the previous instance.
 - Do not attempt to keep multiple instances running.
-
-### Standard locations
-
-- PID file: `.aspire/aspire.pid`
-- Log file: `.aspire/aspire.log`
-- AppHost fingerprint file: `.aspire/apphost.fingerprint`
-
-### Start procedure
-
-1. Compute a stable fingerprint of the AppHost (project + source inputs that affect it).
-2. If the fingerprint differs from `.aspire/apphost.fingerprint` OR no pid file exists OR the process is not running:
-   - (Re)start `aspire run` detached, update pid file, update fingerprint file.
-3. Wait for readiness (health endpoint or open port) before using `curl`.
-4. If readiness fails, show the last 200 lines of `.aspire/aspire.log`.
 
 ## Running the application
 
@@ -89,6 +93,23 @@ IMPORTANT! Consider avoiding persistent containers early during development to a
 ## Aspire workload
 
 IMPORTANT! The aspire workload is obsolete. You should never attempt to install or use the Aspire workload.
+
+## Aspire Documentation Tools
+
+IMPORTANT! The Aspire MCP server provides tools to search and retrieve official Aspire documentation directly. Use these tools to find accurate, up-to-date information about Aspire features, APIs, and integrations:
+
+1. **list_docs**: Lists all available documentation pages from aspire.dev. Returns titles, slugs, and summaries. Use this to discover available topics.
+
+2. **search_docs**: Searches the documentation using keywords. Returns ranked results with titles, slugs, and matched content. Use this when looking for specific features, APIs, or concepts.
+
+3. **get_doc**: Retrieves the full content of a documentation page by its slug. After using `list_docs` or `search_docs` to find a relevant page, pass the slug to `get_doc` to retrieve the complete documentation.
+
+### Recommended workflow for documentation
+
+1. Use `search_docs` with relevant keywords to find documentation about a topic
+2. Review the search results - each result includes a **Slug** that identifies the page
+3. Use `get_doc` with the slug to retrieve the full documentation content
+4. Optionally use the `section` parameter with `get_doc` to retrieve only a specific section
 
 ## Official documentation
 
