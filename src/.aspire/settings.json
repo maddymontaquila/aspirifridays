@@ -1,0 +1,17 @@
+{
+  "appHostPath": "../apphost.ts",
+  "language": "typescript/nodejs",
+  "channel": "staging",
+  "sdkVersion": "13.2.0-preview.1.26161.4",
+  "packages": {
+    "Aspire.Hosting.Azure.AppContainers": "",
+    "Aspire.Hosting.Azure.Redis": "",
+    "Aspire.Hosting.Docker": "",
+    "Aspire.Hosting.Redis": "",
+    "Aspire.Hosting.PostgreSQL": "",
+    "Aspire.Hosting.JavaScript": "",
+    "Aspire.Hosting.Yarp": "",
+    "Aspire.Hosting.Maui": "",
+    "Aspire.Hosting.DevTunnels": ""
+  }
+}
