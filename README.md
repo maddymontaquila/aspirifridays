@@ -21,7 +21,7 @@ A bingo board that viewers can play along with during a live stream. Each player
 
 ```bash
 cd src
-aspire run
+aspire start
 ```
 
 That's it. Aspire handles spinning up PostgreSQL, Redis, the admin panel, and the Vue client.
