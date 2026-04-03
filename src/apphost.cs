@@ -55,16 +55,40 @@ var cache = builder.AddRedis("cache")
 var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
     .ConfigureInfrastructure(infra =>
     {
-        if (string.IsNullOrWhiteSpace(postgresAzureLocation))
-        {
-            return;
-        }
+        const int minimumBackupRetentionDays = 7;
+        const int minimumStorageSizeInGb = 32;
 
         var flexibleServer = infra.GetProvisionableResources()
             .OfType<PostgreSqlFlexibleServer>()
             .Single();
 
-        flexibleServer.Location = new AzureLocation(postgresAzureLocation);
+        if (!string.IsNullOrWhiteSpace(postgresAzureLocation))
+        {
+            flexibleServer.Location = new AzureLocation(postgresAzureLocation);
+        }
+
+        flexibleServer.Sku = new PostgreSqlFlexibleServerSku
+        {
+            Name = "Standard_B1ms",
+            Tier = PostgreSqlFlexibleServerSkuTier.Burstable
+        };
+
+        flexibleServer.Backup = new PostgreSqlFlexibleServerBackupProperties
+        {
+            BackupRetentionDays = minimumBackupRetentionDays,
+            GeoRedundantBackup = PostgreSqlFlexibleServerGeoRedundantBackupEnum.Disabled
+        };
+
+        flexibleServer.HighAvailability = new PostgreSqlFlexibleServerHighAvailability
+        {
+            Mode = PostgreSqlFlexibleServerHighAvailabilityMode.Disabled
+        };
+
+        flexibleServer.Storage = new PostgreSqlFlexibleServerStorage
+        {
+            StorageSizeInGB = minimumStorageSizeInGb,
+            AutoGrow = StorageAutoGrow.Disabled
+        };
     })
     .WithPasswordAuthentication()
     .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
@@ -175,20 +199,13 @@ static string GetViteVersion(string packageJsonPath)
         return "dev";
     }
 
-    try
-    {
-        using var stream = File.OpenRead(packageJsonPath);
-        using var document = JsonDocument.Parse(stream);
-        if (!document.RootElement.TryGetProperty("devDependencies", out var devDependencies)
-            || !devDependencies.TryGetProperty("vite", out var viteVersionProperty))
-        {
-            return "dev";
-        }
-
-        return viteVersionProperty.GetString()?.TrimStart('^', '~') ?? "dev";
-    }
-    catch
+    using var stream = File.OpenRead(packageJsonPath);
+    using var document = JsonDocument.Parse(stream);
+    if (!document.RootElement.TryGetProperty("devDependencies", out var devDependencies)
+        || !devDependencies.TryGetProperty("vite", out var viteVersionProperty))
     {
         return "dev";
     }
+
+    return viteVersionProperty.GetString()?.TrimStart('^', '~') ?? "dev";
 }
