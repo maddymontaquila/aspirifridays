@@ -76,6 +76,7 @@ jobs:
           DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
+          Azure__PostgresLocation: ${{ secrets.AZURE_POSTGRES_LOCATION || secrets.AZURE_LOCATION || 'eastus' }}
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
           Parameters__admin_password: ${{ secrets.ADMIN_PASSWORD }}
           Parameters__cache_password: ${{ secrets.CACHE_PASSWORD }}

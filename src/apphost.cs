@@ -15,7 +15,9 @@
 
 using System.Reflection;
 using System.Text.Json;
+using Azure.Core;
 using Azure.Provisioning.AppContainers;
+using Azure.Provisioning.PostgreSql;
 using Aspire.Hosting;
 using Aspire.Hosting.Azure;
 using Microsoft.Extensions.Hosting;
@@ -31,6 +33,7 @@ var dotnetVersion = Environment.GetEnvironmentVariable("DOTNET_VERSION")
     ?? Environment.Version.ToString();
 var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "dev";
 var viteVersion = GetViteVersion(Path.Combine(builder.Environment.ContentRootPath, "bingo-board", "package.json"));
+var postgresAzureLocation = builder.Configuration["Azure:PostgresLocation"];
 
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
@@ -50,6 +53,19 @@ var cache = builder.AddRedis("cache")
     });
 
 var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+    .ConfigureInfrastructure(infra =>
+    {
+        if (string.IsNullOrWhiteSpace(postgresAzureLocation))
+        {
+            return;
+        }
+
+        var flexibleServer = infra.GetProvisionableResources()
+            .OfType<PostgreSqlFlexibleServer>()
+            .Single();
+
+        flexibleServer.Location = new AzureLocation(postgresAzureLocation);
+    })
     .WithPasswordAuthentication()
     .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
 
