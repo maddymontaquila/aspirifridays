@@ -159,13 +159,20 @@ static string GetViteVersion(string packageJsonPath)
         return "dev";
     }
 
-    using var stream = File.OpenRead(packageJsonPath);
-    using var document = JsonDocument.Parse(stream);
-    if (!document.RootElement.TryGetProperty("devDependencies", out var devDependencies)
-        || !devDependencies.TryGetProperty("vite", out var viteVersionProperty))
+    try
+    {
+        using var stream = File.OpenRead(packageJsonPath);
+        using var document = JsonDocument.Parse(stream);
+        if (!document.RootElement.TryGetProperty("devDependencies", out var devDependencies)
+            || !devDependencies.TryGetProperty("vite", out var viteVersionProperty))
+        {
+            return "dev";
+        }
+
+        return viteVersionProperty.GetString()?.TrimStart('^', '~') ?? "dev";
+    }
+    catch
     {
         return "dev";
     }
-
-    return viteVersionProperty.GetString()?.TrimStart('^', '~') ?? "dev";
 }
