@@ -6,15 +6,6 @@
         "agent",
         "mcp"
       ]
-    },
-    "playwright": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@playwright/mcp@latest",
-        "--browser",
-        "msedge-beta"
-      ]
     }
   }
 }

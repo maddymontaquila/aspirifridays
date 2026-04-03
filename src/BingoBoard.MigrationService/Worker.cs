@@ -78,18 +78,21 @@ public class Worker(
 
                 adminUser = new ApplicationUser();
                 await userStore.SetUserNameAsync(adminUser, AdminUserName, CancellationToken.None);
-                var result = await userManager.CreateAsync(adminUser);
+                var result = await userManager.CreateAsync(adminUser, password);
 
                 if (!result.Succeeded)
                 {
-                    throw new InvalidOperationException("Unable to create the admin user.");
+                    var errors = string.Join("; ", result.Errors.Select(error => $"{error.Code}: {error.Description}"));
+                    throw new InvalidOperationException($"Unable to create the admin user. {errors}");
                 }
 
                 logger.LogInformation("Admin user created!");
             }
-
-            var passwordStore = (IUserPasswordStore<ApplicationUser>)userStore;
-            await UpdatePasswordHashAsync(userManager, passwordStore, adminUser, password, cancellationToken);
+            else
+            {
+                var passwordStore = (IUserPasswordStore<ApplicationUser>)userStore;
+                await UpdatePasswordHashAsync(userManager, passwordStore, adminUser, password, cancellationToken);
+            }
 
             await transaction.CommitAsync(cancellationToken);
         });
@@ -123,34 +126,42 @@ public class Worker(
 
     private async Task SeedBingoSquaresAsync(ApplicationDbContext dbContext, CancellationToken cancellationToken)
     {
-        // Only seed if the table is empty
-        if (await dbContext.BingoSquares.AnyAsync(cancellationToken))
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            logger.LogInformation("Bingo squares already seeded, skipping...");
-            return;
-        }
-
-        logger.LogInformation("Seeding bingo squares...");
-
-        var defaultSquares = GetDefaultBingoSquares();
-        var order = 0;
-
-        foreach (var square in defaultSquares)
-        {
-            dbContext.BingoSquares.Add(new BingoSquareEntity
+            // Only seed if the table is empty.
+            if (await dbContext.BingoSquares.AnyAsync(cancellationToken))
             {
-                Id = square.Id,
-                Label = square.Label,
-                Type = square.Type,
-                IsActive = true,
-                DisplayOrder = order++,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            });
-        }
+                logger.LogInformation("Bingo squares already seeded, skipping...");
+                return;
+            }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Seeded {Count} bingo squares", defaultSquares.Count);
+            logger.LogInformation("Seeding bingo squares...");
+
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            var defaultSquares = GetDefaultBingoSquares();
+            var order = 0;
+
+            foreach (var square in defaultSquares)
+            {
+                dbContext.BingoSquares.Add(new BingoSquareEntity
+                {
+                    Id = square.Id,
+                    Label = square.Label,
+                    Type = square.Type,
+                    IsActive = true,
+                    DisplayOrder = order++,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            logger.LogInformation("Seeded {Count} bingo squares", defaultSquares.Count);
+        });
     }
 
     private static List<BingoSquareData> GetDefaultBingoSquares() =>

@@ -73,6 +73,7 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddHostedService<ApprovalCleanupService>();
 
 builder.Services.AddSingleton<AddressResolver>();
+builder.Services.AddSingleton<AppVersionInfoProvider>();
 
 // Add logging
 builder.Services.AddLogging();
@@ -99,6 +100,8 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.MapStaticAssets();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 // Map Razor components
@@ -110,5 +113,7 @@ app.MapHub<BingoHub>("/bingohub");
 
 // Map authentication endpoints
 app.MapAuthenticationEndpoints();
+
+app.MapGet("/api/version-info", (AppVersionInfoProvider versionInfoProvider) => versionInfoProvider.GetVersionInfo());
 
 app.Run();

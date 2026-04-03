@@ -39,66 +39,70 @@ public static class AuthenticationEndpoints
         SignInManager<ApplicationUser> signInManager,
         ILogger<Program> logger)
     {
-        // Read password from form data instead of query parameter
-        var form = await context.Request.ReadFormAsync();
-        var password = form["password"].ToString();
-        var passkeyCredentialJson = form["passkey.CredentialJson"].ToString();
-        var passkeyError = form["passkey.Error"].ToString();
-
-        logger.LogInformation("Login attempt - Has password: {HasPassword}, Has passkey: {HasPasskey}, Passkey error: {PasskeyError}",
-            !string.IsNullOrEmpty(password),
-            !string.IsNullOrEmpty(passkeyCredentialJson),
-            passkeyError);
-
-        var user = await userManager.FindByNameAsync("admin");
-        if (user is null)
+        try
         {
-            logger.LogInformation("Admin user not created.");
-            return TypedResults.Redirect("/login?error=no-user");
-        }
+            var form = await context.Request.ReadFormAsync();
+            var password = form["password"].ToString();
+            var passkeyCredentialJson = form["passkey.CredentialJson"].ToString();
+            var passkeyError = form["passkey.Error"].ToString();
+            var returnUrl = form["returnUrl"].ToString();
 
-        // Handle passkey errors
-        if (!string.IsNullOrEmpty(passkeyError))
-        {
-            logger.LogWarning("Passkey error from client: {Error}", passkeyError);
-            return TypedResults.Redirect("/login?error=passkey-error");
-        }
+            logger.LogInformation("Login attempt - Has password: {HasPassword}, Has passkey: {HasPasskey}, Passkey error: {PasskeyError}",
+                !string.IsNullOrEmpty(password),
+                !string.IsNullOrEmpty(passkeyCredentialJson),
+                passkeyError);
 
-        // Try passkey authentication first if passkey credential is provided
-        if (!string.IsNullOrEmpty(passkeyCredentialJson))
-        {
-            logger.LogInformation("Attempting passkey authentication");
-
-            var result = await signInManager.PasskeySignInAsync(passkeyCredentialJson);
-            if (result.Succeeded)
+            var user = await userManager.FindByNameAsync("admin");
+            if (user is null)
             {
-                logger.LogInformation("Passkey authenticated succeeded, signing in user");
-                return TypedResults.Redirect("/");
+                logger.LogInformation("Admin user not created.");
+                return TypedResults.Redirect("/login?error=no-user");
             }
 
-            logger.LogWarning("Passkey authentication failed");
-            return TypedResults.Redirect("/login?error=passkey-error");
-        }
-
-        // Try password authentication if password is provided
-        if (!string.IsNullOrEmpty(password))
-        {
-            logger.LogInformation("Attempting password authentication");
-
-            var result = await signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
-            if (result.Succeeded)
+            if (!string.IsNullOrEmpty(passkeyError))
             {
-                logger.LogInformation("Password valid, signing in user");
-                return TypedResults.Redirect("/");
+                logger.LogWarning("Passkey error from client: {Error}", passkeyError);
+                return TypedResults.Redirect("/login?error=passkey-error");
             }
 
-            logger.LogInformation("Password invalid, redirecting to login with error");
+            if (!string.IsNullOrEmpty(passkeyCredentialJson))
+            {
+                logger.LogInformation("Attempting passkey authentication");
+
+                var passkeyResult = await signInManager.PasskeySignInAsync(passkeyCredentialJson);
+                if (passkeyResult.Succeeded)
+                {
+                    logger.LogInformation("Passkey authenticated succeeded, signing in user");
+                    return RedirectToLocal(context, returnUrl);
+                }
+
+                logger.LogWarning("Passkey authentication failed");
+                return TypedResults.Redirect("/login?error=passkey-error");
+            }
+
+            if (!string.IsNullOrEmpty(password))
+            {
+                logger.LogInformation("Attempting password authentication");
+
+                var passwordResult = await signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
+                if (passwordResult.Succeeded)
+                {
+                    logger.LogInformation("Password valid, signing in user");
+                    return RedirectToLocal(context, returnUrl);
+                }
+
+                logger.LogInformation("Password invalid, redirecting to login with error");
+                return TypedResults.Redirect("/login?error=invalid");
+            }
+
+            logger.LogInformation("No authentication credentials provided");
             return TypedResults.Redirect("/login?error=invalid");
         }
-
-        // No authentication method provided
-        logger.LogInformation("No authentication credentials provided");
-        return TypedResults.Redirect("/login?error=invalid");
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unhandled exception during login.");
+            return TypedResults.Redirect("/login?error=unexpected");
+        }
     }
 
     /// <summary>
@@ -170,5 +174,28 @@ public static class AuthenticationEndpoints
         var user = string.IsNullOrEmpty(username) ? null : await userManager.FindByNameAsync(username);
         var optionsJson = await signInManager.MakePasskeyRequestOptionsAsync(user);
         return TypedResults.Content(optionsJson, contentType: "application/json");
+    }
+
+    private static RedirectHttpResult RedirectToLocal(HttpContext context, string? returnUrl)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return TypedResults.Redirect("/");
+        }
+
+        if (Uri.TryCreate(returnUrl, UriKind.Relative, out _))
+        {
+            return TypedResults.Redirect(returnUrl);
+        }
+
+        if (Uri.TryCreate(returnUrl, UriKind.Absolute, out var absoluteUri)
+            && string.Equals(absoluteUri.Host, context.Request.Host.Host, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(absoluteUri.Scheme, context.Request.Scheme, StringComparison.OrdinalIgnoreCase))
+        {
+            var localPath = string.IsNullOrEmpty(absoluteUri.PathAndQuery) ? "/" : absoluteUri.PathAndQuery;
+            return TypedResults.Redirect(localPath + absoluteUri.Fragment);
+        }
+
+        return TypedResults.Redirect("/");
     }
 }

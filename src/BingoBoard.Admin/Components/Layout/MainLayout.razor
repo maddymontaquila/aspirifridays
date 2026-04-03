@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@inject BingoBoard.Admin.Services.AppVersionInfoProvider VersionInfoProvider
 
 <div class="page">
     <div class="sidebar">
@@ -50,15 +51,15 @@
 </div>
 
 @code {
-    private string FullCommitSha => Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "";
+    private BingoBoard.Admin.Services.AppVersionInfo VersionInfo => VersionInfoProvider.GetVersionInfo();
     
-    private string CommitHash => FullCommitSha.Length >= 7 ? FullCommitSha[..7] : "dev";
+    private string FullCommitSha => VersionInfo.CommitSha;
     
-    private string CommitUrl => FullCommitSha.Length > 0 
-        ? $"https://github.com/maddymontaquila/aspirifridays/commit/{FullCommitSha}" 
-        : "https://github.com/maddymontaquila/aspirifridays";
+    private string CommitHash => VersionInfo.CommitHash;
     
-    private string DotNetVersion => Environment.Version.Major.ToString();
+    private string CommitUrl => VersionInfo.CommitUrl;
     
-    private string AspireVersion => Environment.GetEnvironmentVariable("ASPIRE_VERSION") ?? "dev";
+    private string DotNetVersion => VersionInfo.DotNetVersion;
+    
+    private string AspireVersion => VersionInfo.AspireVersion;
 }
