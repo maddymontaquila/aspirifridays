@@ -36,6 +36,33 @@ export default {
       aspireVersion: import.meta.env.VITE_ASPIRE_VERSION || 'dev',
       viteVersion: import.meta.env.VITE_VERSION || 'dev'
     }
+  },
+  async mounted() {
+    await this.loadVersionInfo()
+  },
+  methods: {
+    async loadVersionInfo() {
+      try {
+        const response = await fetch('/api/version-info', {
+          headers: {
+            Accept: 'application/json'
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error(`Version endpoint returned ${response.status}`)
+        }
+
+        const versionInfo = await response.json()
+        this.commitHash = versionInfo.commitHash || this.commitHash
+        this.commitUrl = versionInfo.commitUrl || this.commitUrl
+        this.dotnetVersion = versionInfo.dotnetVersion || this.dotnetVersion
+        this.aspireVersion = versionInfo.aspireVersion || this.aspireVersion
+        this.viteVersion = versionInfo.viteVersion || this.viteVersion
+      } catch (error) {
+        console.warn('Failed to load runtime version info.', error)
+      }
+    }
   }
 }
 </script>
