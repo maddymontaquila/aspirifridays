@@ -17,6 +17,11 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api/version-info': {
+        target: process.env.services__boardadmin__https__0 || process.env.services__boardadmin__http__0,
+        changeOrigin: true,
+        secure: false
+      },
       // Proxy SignalR hub to the admin service
       '/bingohub': {
         target: process.env.services__boardadmin__https__0 || process.env.services__boardadmin__http__0,

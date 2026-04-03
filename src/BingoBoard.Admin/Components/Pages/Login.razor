@@ -15,8 +15,12 @@
         </div>
         
         <div class="login-section">
-            <form method="post" action="/auth/login">
+            <form method="post" action="/auth/login" data-enhance="false">
                 <AntiforgeryToken />
+                @if (!string.IsNullOrWhiteSpace(ReturnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                }
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
                     <div class="alert alert-danger" role="alert">
@@ -66,14 +70,18 @@
     
     [SupplyParameterFromQuery]
     public string? Error { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
     
-    protected override void OnInitialized()
+    protected override void OnParametersSet()
     {
         errorMessage = Error switch
         {
             "invalid" => "Invalid password. Please try again.",
             "no-user" => "The user does not exist.",
             "passkey-error" => "Passkey authentication failed. Please try again.",
+            "unexpected" => "Unable to sign in right now. Please try again.",
             _ => "",
         };
     }

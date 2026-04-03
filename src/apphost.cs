@@ -1,9 +1,9 @@
-﻿#:sdk Aspire.AppHost.Sdk@13.2.0-preview.1.26106.2
+﻿#:sdk Aspire.AppHost.Sdk@13.2.1
 #:package Aspire.Hosting.Azure.AppContainers
+#:package Aspire.Hosting.Azure.PostgreSQL
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
 #:package Aspire.Hosting.Redis
-#:package Aspire.Hosting.PostgreSQL
 #:package Aspire.Hosting.JavaScript
 #:package Aspire.Hosting.Yarp
 #:package Aspire.Hosting.Maui
@@ -14,19 +14,23 @@
 #pragma warning disable
 
 using System.Reflection;
+using System.Text.Json;
 using Azure.Provisioning.AppContainers;
+using Aspire.Hosting;
 using Aspire.Hosting.Azure;
 using Microsoft.Extensions.Hosting;
 
-// Get version info programmatically
+var builder = DistributedApplication.CreateBuilder(args);
+
 var aspireAssembly = typeof(IDistributedApplicationBuilder).Assembly;
-var aspireVersion = aspireAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] 
+var aspireVersion = Environment.GetEnvironmentVariable("ASPIRE_VERSION")
+    ?? aspireAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] 
     ?? aspireAssembly.GetName().Version?.ToString(3) 
     ?? "unknown";
-var dotnetVersion = Environment.Version.Major.ToString();
+var dotnetVersion = Environment.GetEnvironmentVariable("DOTNET_VERSION")
+    ?? Environment.Version.ToString();
 var commitSha = Environment.GetEnvironmentVariable("COMMIT_SHA") ?? "dev";
-
-var builder = DistributedApplication.CreateBuilder(args);
+var viteVersion = GetViteVersion(Path.Combine(builder.Environment.ContentRootPath, "bingo-board", "package.json"));
 
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
@@ -45,8 +49,9 @@ var cache = builder.AddRedis("cache")
         app.Template.Scale.MaxReplicas = 1;
     });
 
-var postgres = builder.AddPostgres("postgres")
-    .WithLifetime(ContainerLifetime.Persistent);
+var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+    .WithPasswordAuthentication()
+    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
 
 var db = postgres.AddDatabase("db")
     .WithPostgresMcp();
@@ -64,7 +69,9 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WaitFor(cache)
     .WaitForCompletion(migrations)
     .WithEnvironment("COMMIT_SHA", commitSha)
+    .WithEnvironment("DOTNET_VERSION", dotnetVersion)
     .WithEnvironment("ASPIRE_VERSION", aspireVersion)
+    .WithEnvironment("VITE_VERSION", viteVersion)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((infra, app) =>
     {
@@ -79,12 +86,14 @@ var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithEnvironment("VITE_COMMIT_SHA", commitSha)
     .WithEnvironment("VITE_DOTNET_VERSION", dotnetVersion)
     .WithEnvironment("VITE_ASPIRE_VERSION", aspireVersion)
+    .WithEnvironment("VITE_VERSION", viteVersion)
     .WithReference(admin)
     .WaitFor(admin);
 
 builder.AddYarp("bingoboard")
     .WithConfiguration(c =>
     {
+        c.AddRoute("/api/version-info", admin);
         c.AddRoute("/bingohub/{**catch-all}", admin);
     })
     .PublishWithStaticFiles(frontend)
@@ -142,3 +151,21 @@ if (!string.IsNullOrWhiteSpace(launchProfile) &&
 }
 
 builder.Build().Run();
+
+static string GetViteVersion(string packageJsonPath)
+{
+    if (!File.Exists(packageJsonPath))
+    {
+        return "dev";
+    }
+
+    using var stream = File.OpenRead(packageJsonPath);
+    using var document = JsonDocument.Parse(stream);
+    if (!document.RootElement.TryGetProperty("devDependencies", out var devDependencies)
+        || !devDependencies.TryGetProperty("vite", out var viteVersionProperty))
+    {
+        return "dev";
+    }
+
+    return viteVersionProperty.GetString()?.TrimStart('^', '~') ?? "dev";
+}

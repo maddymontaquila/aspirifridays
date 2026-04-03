@@ -1,44 +1,47 @@
-# aspirifridays
+# AspiriFridays Bingo 🎯
 
-AspiriFridays bingo
+A real-time multiplayer bingo app for live streams, built with Aspire.
 
-## Version Information
+## What is this?
 
-Both the admin and client applications display version information in their footers, including:
-- Commit SHA (short hash)
-- .NET version
-- .NET Aspire version
-- Vite version (client app only)
-- Build/render timestamp
+A bingo board that viewers can play along with during a live stream. Each player gets a randomized 5x5 bingo board with stream-related squares. The host can run it in **Live Mode** (squares require admin approval) or **Free Play** (mark freely).
 
-### Setting Version Information
+## Tech Stack
 
-The version information is automatically populated during CI/CD deployment via environment variables set in the GitHub Actions workflow. The Aspire version is dynamically extracted from the `apphost.cs` file, and the Vite version is automatically read from `package.json`.
+- **Orchestration:** Aspire
+- **Backend:** ASP.NET Core (Blazor) + SignalR
+- **Frontend:** Vue 3 + Vite
+- **Database:** PostgreSQL
+- **Cache:** Redis
+- **Mobile:** .NET MAUI Hybrid
 
-**Requirements:**
-- .NET 10 RC or later (required for `dotnet build` command with apphost.cs)
+## Running Locally
 
-For local development, you can set these environment variables before running the application:
+**Prerequisites:** .NET 10+, Node.js, Docker
 
 ```bash
-# Extract Aspire version from apphost.cs
-ASPIRE_VERSION=$(grep -o '#:sdk Aspire.AppHost.Sdk@.*' ./src/apphost.cs | cut -d'@' -f2 | grep -oP '^\d+\.\d+\.\d+(-preview\.\d+)?')
-
-# For the admin app
-export COMMIT_SHA=$(git rev-parse HEAD)
-export DOTNET_VERSION=$(dotnet --version)
-export ASPIRE_VERSION="$ASPIRE_VERSION"
-export BUILD_TIME=$(date -u +"%a, %d %b %Y %H:%M:%S GMT")
-
-# For the client app (Vue.js) - needs VITE_ prefix
-export VITE_COMMIT_SHA=$(git rev-parse HEAD)
-export VITE_DOTNET_VERSION=$(dotnet --version)
-export VITE_ASPIRE_VERSION="$ASPIRE_VERSION"
-# Note: Vite version is automatically extracted from package.json
+cd src
+aspire run
 ```
 
-Or create a `.env` file in the `src/bingo-board` directory based on `.env.example`.
+That's it. Aspire handles spinning up PostgreSQL, Redis, the admin panel, and the Vue client.
 
-**Note:** 
-- The Aspire version is automatically extracted from the `#:sdk` directive in `apphost.cs` during CI/CD deployment.
-- The Vite version is automatically read from `package.json` during the build process.
+## Project Structure
+
+```
+src/
+├── apphost.cs                    # Aspire orchestrator
+├── bingo-board/                  # Vue.js player client
+├── BingoBoard.Admin/             # Blazor admin panel + SignalR hub
+├── BingoBoard.MigrationService/  # DB migrations
+├── BingoBoard.MauiHybrid/        # Mobile/desktop app
+└── BingoBoard.ServiceDefaults/   # Shared service defaults
+```
+
+## How It Works
+
+1. Players connect to the Vue client and get a randomized bingo board
+2. Admin can toggle between **Live Mode** and **Free Play**
+3. In Live Mode, square markings require approval from the admin
+4. SignalR keeps everything in sync in real-time
+5. Get 5 in a row → bingo! 🎉
