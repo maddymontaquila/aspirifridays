@@ -1,4 +1,4 @@
-﻿#:sdk Aspire.AppHost.Sdk@13.2.1
+﻿#:sdk Aspire.AppHost.Sdk@13.3.3
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
 #:package Aspire.Hosting.Azure.Redis
@@ -18,7 +18,6 @@ using System.Text.Json;
 using Azure.Core;
 using Azure.Provisioning.AppContainers;
 using Azure.Provisioning.PostgreSql;
-using Aspire.Hosting;
 using Aspire.Hosting.Azure;
 using Microsoft.Extensions.Hosting;
 
