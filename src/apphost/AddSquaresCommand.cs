@@ -7,50 +7,18 @@ internal static class AddSquaresCommand
         this IResourceBuilder<T> resource)
         where T : IResourceWithEndpoints
     {
-        return resource.WithCommand(
-            "import-squares",
-            "Import bingo squares",
-            async context =>
+        return resource.WithHttpCommand(
+            path: "/api/demo/producer/squares/import",
+            displayName: "Import bingo squares",
+            endpointName: "https",
+            commandName: "import-squares",
+            commandOptions: new HttpCommandOptions
             {
-                if (!context.Arguments.TryGetByName("file", out var input) ||
-                    input.Files is not [var file])
-                {
-                    return CommandResults.Failure("Select one JSON file.");
-                }
-
-                var adminUrl = await resource.GetEndpoint("https")
-                    .GetValueAsync(context.CancellationToken);
-
-                if (string.IsNullOrWhiteSpace(adminUrl))
-                {
-                    return CommandResults.Failure("The admin endpoint is unavailable.");
-                }
-
-                using var client = new HttpClient();
-                using var content = new StreamContent(file.OpenRead());
-                content.Headers.ContentType =
-                    new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-
-                using var response = await client.PostAsync(
-                    $"{adminUrl}/api/demo/producer/squares/import?mode=merge",
-                    content,
-                    context.CancellationToken);
-
-                var result = await response.Content.ReadAsStringAsync(
-                    context.CancellationToken);
-
-                return response.IsSuccessStatusCode
-                    ? CommandResults.Success(
-                        "Bingo squares imported.",
-                        result,
-                        CommandResultFormat.Json)
-                    : CommandResults.Failure(result);
-            },
-            new CommandOptions
-            {
-                Description = "Merge bingo squares from a JSON file.",
+                Description = "Import bingo squares from a JSON file.",
                 IconName = "ArrowUpload",
                 IsHighlighted = true,
+                Method = HttpMethod.Post,
+                ResultMode = HttpCommandResultMode.Auto,
                 Arguments =
                 [
                     new InteractionInput
@@ -61,8 +29,43 @@ internal static class AddSquaresCommand
                         FileFilter = ".json",
                         MaxFileSize = 1024 * 1024,
                         Required = true
+                    },
+                    new InteractionInput
+                    {
+                        Name = "mode",
+                        Label = "Import mode",
+                        Description = "Merge preserves existing squares; replace removes them first.",
+                        InputType = InputType.Choice,
+                        Value = "merge",
+                        Required = true,
+                        Options =
+                        [
+                            new("merge", "Merge with existing squares"),
+                            new("replace", "Replace all squares")
+                        ]
                     }
-                ]
+                ],
+                PrepareRequest = context =>
+                {
+                    if (!context.Arguments.TryGetByName("file", out var input) ||
+                        input.Files is not [var file])
+                    {
+                        throw new InvalidOperationException("Select one JSON file.");
+                    }
+
+                    var mode = context.Arguments.GetString("mode") ?? "merge";
+                    var requestUri = new UriBuilder(context.Request.RequestUri!)
+                    {
+                        Query = $"mode={Uri.EscapeDataString(mode)}"
+                    };
+
+                    context.Request.RequestUri = requestUri.Uri;
+                    context.Request.Content = new StreamContent(file.OpenRead());
+                    context.Request.Content.Headers.ContentType =
+                        new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+                    return Task.CompletedTask;
+                }
             });
     }
 }
