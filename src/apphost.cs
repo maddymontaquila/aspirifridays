@@ -14,6 +14,7 @@
 #:include ./apphost/BuildInfo.cs
 #:include ./apphost/DeploymentExtensions.cs
 #:include ./apphost/MauiResources.cs
+#:include ./apphost/AddSquaresCommand.cs
 
 #pragma warning disable
 
@@ -63,6 +64,8 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithEnvironment("VITE_VERSION", buildInfo.ViteVersion)
     .WithExternalHttpEndpoints()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
+
+admin.WithImportSquaresCommand();
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithEnvironment("VITE_COMMIT_SHA", buildInfo.CommitSha)
