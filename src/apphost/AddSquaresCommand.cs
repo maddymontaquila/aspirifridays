@@ -10,13 +10,11 @@ internal static class AddSquaresCommand
         return resource.WithHttpCommand(
             path: "/api/demo/producer/squares/import",
             displayName: "Import bingo squares",
-            endpointName: "https",
             commandName: "import-squares",
             commandOptions: new HttpCommandOptions
             {
                 Description = "Import bingo squares from a JSON file.",
                 IconName = "ArrowUpload",
-                IsHighlighted = true,
                 Method = HttpMethod.Post,
                 ResultMode = HttpCommandResultMode.Auto,
                 Arguments =
