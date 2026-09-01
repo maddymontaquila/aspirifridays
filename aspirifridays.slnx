@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="src/BingoBoard.Admin.Tests/BingoBoard.Admin.Tests.csproj" />
   <Project Path="src/BingoBoard.Admin/BingoBoard.Admin.csproj" />
   <Project Path="src/BingoBoard.Data/BingoBoard.Data.csproj" />
   <Project Path="src/BingoBoard.MauiHybrid/BingoBoard.MauiHybrid.csproj" />

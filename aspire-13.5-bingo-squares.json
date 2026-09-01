@@ -1,0 +1,27 @@
+[
+  {
+    "id": "file-upload",
+    "label": "A file is uploaded from the dashboard",
+    "type": "dev"
+  },
+  {
+    "id": "terminal-demo",
+    "label": "WithTerminal saves the demo",
+    "type": "dev"
+  },
+  {
+    "id": "complain-about-font-size",
+    "label": "Someone's font is too small",
+    "type": "dev"
+  },
+  {
+    "id": "no-yaml",
+    "label": "Someone says \"no YAML\"",
+    "type": "quote"
+  },
+  {
+    "id": "under-five-minutes",
+    "label": "The demo finishes in under five minutes",
+    "type": "meta"
+  }
+]
