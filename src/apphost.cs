@@ -11,10 +11,7 @@
 #:package Aspire.Hosting.DevTunnels
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
-#:include ./apphost/BuildInfo.cs
-#:include ./apphost/DeploymentExtensions.cs
-#:include ./apphost/MauiResources.cs
-#:include ./apphost/AddSquaresCommand.cs
+#:include ./apphost/*.cs
 
 #pragma warning disable
 
@@ -58,20 +55,14 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(migrations)
     .WaitFor(cache)
     .WaitForCompletion(migrations)
-    .WithEnvironment("COMMIT_SHA", buildInfo.CommitSha)
-    .WithEnvironment("DOTNET_VERSION", buildInfo.DotnetVersion)
-    .WithEnvironment("ASPIRE_VERSION", buildInfo.AspireVersion)
-    .WithEnvironment("VITE_VERSION", buildInfo.ViteVersion)
+    .WithBuildInfo(buildInfo)
     .WithExternalHttpEndpoints()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
 
 admin.WithImportSquaresCommand();
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
-    .WithEnvironment("VITE_COMMIT_SHA", buildInfo.CommitSha)
-    .WithEnvironment("VITE_DOTNET_VERSION", buildInfo.DotnetVersion)
-    .WithEnvironment("VITE_ASPIRE_VERSION", buildInfo.AspireVersion)
-    .WithEnvironment("VITE_VERSION", buildInfo.ViteVersion)
+    .WithBuildInfo(buildInfo, prefix: "VITE_")
     .WithReference(admin)
     .WaitFor(admin);
 

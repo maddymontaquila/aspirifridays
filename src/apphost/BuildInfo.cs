@@ -44,3 +44,19 @@ internal sealed record BuildInfo(
         return viteVersionProperty.GetString()?.TrimStart('^', '~') ?? "dev";
     }
 }
+
+internal static class BuildInfoResourceExtensions
+{
+    public static IResourceBuilder<T> WithBuildInfo<T>(
+        this IResourceBuilder<T> resource,
+        BuildInfo buildInfo,
+        string prefix = "")
+        where T : IResourceWithEnvironment
+    {
+        return resource
+            .WithEnvironment($"{prefix}COMMIT_SHA", buildInfo.CommitSha)
+            .WithEnvironment($"{prefix}DOTNET_VERSION", buildInfo.DotnetVersion)
+            .WithEnvironment($"{prefix}ASPIRE_VERSION", buildInfo.AspireVersion)
+            .WithEnvironment("VITE_VERSION", buildInfo.ViteVersion);
+    }
+}
