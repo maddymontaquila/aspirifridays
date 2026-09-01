@@ -59,8 +59,6 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithExternalHttpEndpoints()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
 
-admin.WithImportSquaresCommand();
-
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithBuildInfo(buildInfo, prefix: "VITE_")
     .WithReference(admin)
