@@ -1,5 +1,5 @@
-﻿#!/usr/bin/env dotnet
-#:sdk Aspire.AppHost.Sdk@13.3.3
+#!/usr/bin/env dotnet
+#:sdk Aspire.AppHost.Sdk@13.5.3
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
 #:package Aspire.Hosting.Azure.Redis
@@ -57,12 +57,18 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WaitForCompletion(migrations)
     .WithBuildInfo(buildInfo)
     .WithExternalHttpEndpoints()
+    .WithImportSquaresCommand()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithBuildInfo(buildInfo, prefix: "VITE_")
     .WithReference(admin)
+    .WithEnvironment("TEST", admin)
     .WaitFor(admin);
+
+builder.AddCSharpApp("producer-console", "./producerconsole.cs")
+    .WithReference(admin).WaitFor(admin)
+    .WithTerminal();
 
 builder.AddYarp("bingoboard")
     .WithConfiguration(c =>
