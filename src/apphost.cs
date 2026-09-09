@@ -1,4 +1,4 @@
-#!/usr/bin/env dotnet
+﻿#!/usr/bin/env dotnet
 #:sdk Aspire.AppHost.Sdk@13.5.3
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
@@ -63,7 +63,6 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithBuildInfo(buildInfo, prefix: "VITE_")
     .WithReference(admin)
-    .WithEnvironment("TEST", admin)
     .WaitFor(admin);
 
 builder.AddCSharpApp("producer-console", "./producerconsole.cs")
