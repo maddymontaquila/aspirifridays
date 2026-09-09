@@ -111,4 +111,12 @@ public interface IBingoService
     /// Clear all pending approval requests
     /// </summary>
     Task ClearAllPendingApprovalsAsync();
+
+    /// <summary>
+    /// Import bingo squares by merging with or replacing the current catalog
+    /// </summary>
+    Task<BingoImportResult> ImportSquaresAsync(
+        IReadOnlyCollection<BingoSquareImport> squares,
+        BingoImportMode mode,
+        CancellationToken cancellationToken = default);
 }
