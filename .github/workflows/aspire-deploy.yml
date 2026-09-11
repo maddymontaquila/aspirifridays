@@ -21,16 +21,22 @@ jobs:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
       DOTNET_NOLOGO: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
           lfs: false
       
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-          dotnet-quality: 'preview'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: ./src/bingo-board/package-lock.json
       
       - name: Install Aspire CLI
         run: curl -sSL https://aspire.dev/install.sh | bash
@@ -38,8 +44,12 @@ jobs:
       - name: Add Aspire CLI to PATH
         run: echo "$HOME/.aspire/bin" >> $GITHUB_PATH
 
-      - name: LS
-        run: ls -a
+      - name: Validate release
+        run: |
+          dotnet test --project ./src/BingoBoard.Admin.Tests/BingoBoard.Admin.Tests.csproj --configuration Release
+          npm ci --prefix ./src/bingo-board
+          npm audit --prefix ./src/bingo-board --audit-level=high
+          npm run build --prefix ./src/bingo-board
       
       - name: Set version information
         run: |
@@ -58,14 +68,14 @@ jobs:
           echo "VITE_ASPIRE_VERSION=$ASPIRE_VERSION" >> $GITHUB_ENV
       
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
       - name: Deploy with Aspire
-        run: aspire deploy --project ./src/apphost.cs --environment Production
+        run: aspire deploy --apphost ./src/apphost.cs --environment Production --non-interactive
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
           DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1

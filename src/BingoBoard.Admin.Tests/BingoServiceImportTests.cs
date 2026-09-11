@@ -12,12 +12,13 @@ public sealed class BingoServiceImportTests
     [Fact]
     public async Task ImportSquaresAsync_MergeUpdatesExistingAndAddsNormalizedSquare()
     {
-        await using var database = await TestDatabase.CreateAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var database = await TestDatabase.CreateAsync(cancellationToken);
         var now = DateTime.UtcNow;
         database.Context.BingoSquares.AddRange(
             CreateEntity("existing", "Old label", 3, now),
             CreateEntity("retained", "Retained", 7, now));
-        await database.Context.SaveChangesAsync();
+        await database.Context.SaveChangesAsync(cancellationToken);
 
         var service = CreateService(database.Context);
 
@@ -37,13 +38,14 @@ public sealed class BingoServiceImportTests
                 Type = "DEV"
             }
         ],
-            BingoImportMode.Merge);
+            BingoImportMode.Merge,
+            cancellationToken);
 
         Assert.Equal(new BingoImportResult(Added: 1, Updated: 1, Total: 2), result);
 
         var squares = await database.Context.BingoSquares
             .OrderBy(square => square.DisplayOrder)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         Assert.Equal(3, squares.Count);
 
         var existing = Assert.Single(squares, square => square.Id == "existing");
@@ -62,12 +64,13 @@ public sealed class BingoServiceImportTests
     [Fact]
     public async Task ImportSquaresAsync_ReplaceRemovesExistingCatalog()
     {
-        await using var database = await TestDatabase.CreateAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var database = await TestDatabase.CreateAsync(cancellationToken);
         var now = DateTime.UtcNow;
         database.Context.BingoSquares.AddRange(
             CreateEntity("old-one", "Old one", 4, now),
             CreateEntity("old-two", "Old two", 5, now));
-        await database.Context.SaveChangesAsync();
+        await database.Context.SaveChangesAsync(cancellationToken);
 
         var service = CreateService(database.Context);
 
@@ -80,12 +83,13 @@ public sealed class BingoServiceImportTests
                 Type = "meta"
             }
         ],
-            BingoImportMode.Replace);
+            BingoImportMode.Replace,
+            cancellationToken);
 
         Assert.Equal(new BingoImportResult(Added: 1, Updated: 0, Total: 1), result);
 
         database.Context.ChangeTracker.Clear();
-        var replacement = Assert.Single(await database.Context.BingoSquares.ToListAsync());
+        var replacement = Assert.Single(await database.Context.BingoSquares.ToListAsync(cancellationToken));
         Assert.Equal("replacement", replacement.Id);
         Assert.Equal(0, replacement.DisplayOrder);
     }
@@ -93,7 +97,8 @@ public sealed class BingoServiceImportTests
     [Fact]
     public async Task ImportSquaresAsync_RejectsIdsThatCollideAfterNormalization()
     {
-        await using var database = await TestDatabase.CreateAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var database = await TestDatabase.CreateAsync(cancellationToken);
         var service = CreateService(database.Context);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -102,20 +107,22 @@ public sealed class BingoServiceImportTests
                 new BingoSquareImport { Id = "Demo Square", Label = "First" },
                 new BingoSquareImport { Id = "demo-square", Label = "Second" }
             ],
-                BingoImportMode.Merge));
+                BingoImportMode.Merge,
+                cancellationToken));
 
         Assert.Contains("duplicate ID 'demo-square'", exception.Message);
-        Assert.Empty(await database.Context.BingoSquares.ToListAsync());
+        Assert.Empty(await database.Context.BingoSquares.ToListAsync(cancellationToken));
     }
 
     [Fact]
     public async Task ImportSquaresAsync_RejectsEmptyImport()
     {
-        await using var database = await TestDatabase.CreateAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var database = await TestDatabase.CreateAsync(cancellationToken);
         var service = CreateService(database.Context);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.ImportSquaresAsync([], BingoImportMode.Merge));
+            service.ImportSquaresAsync([], BingoImportMode.Merge, cancellationToken));
 
         Assert.Contains("at least one square", exception.Message);
     }
@@ -154,16 +161,16 @@ public sealed class BingoServiceImportTests
 
         public ApplicationDbContext Context { get; }
 
-        public static async Task<TestDatabase> CreateAsync()
+        public static async Task<TestDatabase> CreateAsync(CancellationToken cancellationToken)
         {
             var connection = new SqliteConnection("Data Source=:memory:");
-            await connection.OpenAsync();
+            await connection.OpenAsync(cancellationToken);
 
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseSqlite(connection)
                 .Options;
             var context = new ApplicationDbContext(options);
-            await context.Database.EnsureCreatedAsync();
+            await context.Database.EnsureCreatedAsync(cancellationToken);
 
             return new TestDatabase(connection, context);
         }
