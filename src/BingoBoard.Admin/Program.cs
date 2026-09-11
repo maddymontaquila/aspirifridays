@@ -60,7 +60,7 @@ builder.Services.AddScoped<IBingoService, BingoService>();
 builder.Services.AddScoped<IClientConnectionService, ClientConnectionService>();
 
 // Add HttpClient for API calls within the app
-builder.Services.AddScoped(sp => 
+builder.Services.AddScoped(sp =>
 {
     var httpClient = new HttpClient
     {
@@ -95,6 +95,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+    app.MapProducerEndpoints();
 }
 
 app.UseStaticFiles();

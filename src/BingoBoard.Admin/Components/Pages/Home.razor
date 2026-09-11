@@ -24,11 +24,11 @@
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-users"></i> Connected Clients
-                        <span class="badge bg-primary ms-2">@ConnectedClients.Count</span>
+                        <span class="badge bg-primary ms-2">@(ConnectedClients?.Count ?? 0)</span>
                     </h5>
                 </div>
                 <div class="card-body">
-                    @if (ConnectedClients.Any() == true)
+                    @if (ConnectedClients?.Any() == true)
                     {
                         <div class="list-group">
                             @foreach (var client in ConnectedClients)
@@ -80,7 +80,7 @@
                                 <label for="clientSelect" class="form-label">Select Client:</label>
                                 <select @bind="selectedClientConnectionId" class="form-select" id="clientSelect">
                                     <option value="">-- Select a client --</option>
-                                    @foreach (var client in ConnectedClients.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)))
+                                    @foreach (var client in ConnectedClients?.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)) ?? [])
                                     {
                                         <option value="@client.ConnectionId">
                                             @client.ConnectionId.Substring(0, 8)... 

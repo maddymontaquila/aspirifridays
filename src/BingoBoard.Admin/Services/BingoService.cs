@@ -44,6 +44,110 @@ public class BingoService(IDistributedCache cache, ILogger<BingoService> logger,
         }
     }
 
+    public async Task<BingoImportResult> ImportSquaresAsync(
+        IReadOnlyCollection<BingoSquareImport> squares,
+        BingoImportMode mode,
+        CancellationToken cancellationToken = default)
+    {
+        if (squares.Count == 0)
+        {
+            throw new ArgumentException("The import must contain at least one square.", nameof(squares));
+        }
+
+        if (squares.Any(square =>
+                string.IsNullOrWhiteSpace(square.Id) ||
+                string.IsNullOrWhiteSpace(square.Label)))
+        {
+            throw new ArgumentException("Every square requires an ID and label.", nameof(squares));
+        }
+
+        var normalized = squares.Select(square => new BingoSquareImport
+        {
+            Id = NormalizeId(square.Id),
+            Label = square.Label.Trim(),
+            Type = square.Type?.Trim().ToLowerInvariant(),
+            IsActive = square.IsActive
+        }).ToList();
+
+        if (normalized.Any(square =>
+                square.Id.Length > 100 ||
+                square.Label.Length > 200 ||
+                square.Type?.Length > 50))
+        {
+            throw new ArgumentException(
+                "Square IDs, labels, and types are limited to 100, 200, and 50 characters respectively.",
+                nameof(squares));
+        }
+
+        var duplicateId = normalized
+            .GroupBy(square => square.Id, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(group => group.Count() > 1)?.Key;
+
+        if (duplicateId is not null)
+        {
+            throw new ArgumentException($"The import contains duplicate ID '{duplicateId}'.", nameof(squares));
+        }
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+
+        if (mode is BingoImportMode.Replace)
+        {
+            await dbContext.BingoSquares.ExecuteDeleteAsync(cancellationToken);
+        }
+
+        var existingEntities = mode is BingoImportMode.Merge
+            ? await dbContext.BingoSquares.ToListAsync(cancellationToken)
+            : [];
+        var existing = existingEntities.ToDictionary(
+            square => square.Id,
+            StringComparer.OrdinalIgnoreCase);
+        var nextOrder = existing.Count == 0
+            ? 0
+            : existing.Values.Max(square => square.DisplayOrder) + 1;
+        var added = 0;
+        var updated = 0;
+
+        foreach (var imported in normalized)
+        {
+            if (existing.TryGetValue(imported.Id, out var entity))
+            {
+                entity.Label = imported.Label;
+                entity.Type = imported.Type;
+                entity.IsActive = imported.IsActive;
+                entity.UpdatedAt = now;
+                updated++;
+                continue;
+            }
+
+            dbContext.BingoSquares.Add(new BingoSquareEntity
+            {
+                Id = imported.Id,
+                Label = imported.Label,
+                Type = imported.Type,
+                IsActive = imported.IsActive,
+                DisplayOrder = nextOrder++,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+            added++;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return new BingoImportResult(added, updated, normalized.Count);
+    }
+
+    private static string NormalizeId(string value)
+    {
+        var id = value.Trim().ToLowerInvariant();
+        id = System.Text.RegularExpressions.Regex.Replace(id, @"\s+", "-");
+        id = System.Text.RegularExpressions.Regex.Replace(id, @"[^a-z0-9-]", "");
+        id = System.Text.RegularExpressions.Regex.Replace(id, @"-+", "-");
+        return id.Trim('-');
+    }
+
     public async Task<BingoSet> GenerateRandomBingoSetAsync(string clientId)
     {
         try
