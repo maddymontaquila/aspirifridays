@@ -71,7 +71,7 @@ public class Worker(
             await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
             // Add the admin user if they don't already exist.
-            var adminUser = await userStore.FindByNameAsync(AdminUserName, cancellationToken);
+            var adminUser = await userManager.FindByNameAsync(AdminUserName);
             if (adminUser is null)
             {
                 logger.LogInformation("Creating the admin user...");
