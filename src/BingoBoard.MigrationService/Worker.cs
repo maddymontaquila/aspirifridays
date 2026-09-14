@@ -129,38 +129,51 @@ public class Worker(
         var strategy = dbContext.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
-            // Only seed if the table is empty.
-            if (await dbContext.BingoSquares.AnyAsync(cancellationToken))
-            {
-                logger.LogInformation("Bingo squares already seeded, skipping...");
-                return;
-            }
-
             logger.LogInformation("Seeding bingo squares...");
 
             await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
             var defaultSquares = GetDefaultBingoSquares();
-            var order = 0;
+            var existingSquares = await dbContext.BingoSquares
+                .AsNoTracking()
+                .Select(square => new { square.Id, square.DisplayOrder })
+                .ToListAsync(cancellationToken);
+            var existingIds = existingSquares
+                .Select(square => square.Id)
+                .ToHashSet(StringComparer.Ordinal);
+            var order = existingSquares.Count > 0
+                ? existingSquares.Max(square => square.DisplayOrder)
+                : -1;
+            var addedCount = 0;
+            var timestamp = DateTime.UtcNow;
 
             foreach (var square in defaultSquares)
             {
+                if (existingIds.Contains(square.Id))
+                {
+                    continue;
+                }
+
                 dbContext.BingoSquares.Add(new BingoSquareEntity
                 {
                     Id = square.Id,
                     Label = square.Label,
                     Type = square.Type,
                     IsActive = true,
-                    DisplayOrder = order++,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    DisplayOrder = ++order,
+                    CreatedAt = timestamp,
+                    UpdatedAt = timestamp
                 });
+                addedCount++;
             }
 
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            logger.LogInformation("Seeded {Count} bingo squares", defaultSquares.Count);
+            logger.LogInformation(
+                "Bingo square seeding complete. Added {AddedCount} defaults; {ExistingCount} defaults already existed.",
+                addedCount,
+                defaultSquares.Count - addedCount);
         });
     }
 
