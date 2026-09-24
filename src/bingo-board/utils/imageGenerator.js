@@ -15,6 +15,7 @@ export class BingoImageGenerator {
 
   async generateImage() {
     try {
+      await document.fonts?.ready;
       const canvas = this.createCanvas();
       const ctx = canvas.getContext('2d');
       
@@ -42,27 +43,28 @@ export class BingoImageGenerator {
   }
 
   drawBackground(ctx) {
-    const gradient = ctx.createLinearGradient(0, 0, this.canvasSize, this.canvasSize);
-    gradient.addColorStop(0, '#2c256b');
-    gradient.addColorStop(0.5, '#1a1a2e');
-    gradient.addColorStop(1, '#0f0f23');
-    
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = '#0f0d1d';
+    ctx.fillRect(0, 0, this.canvasSize, this.canvasSize);
+
+    const glow = ctx.createRadialGradient(this.canvasSize / 2, -60, 0, this.canvasSize / 2, -60, 420);
+    glow.addColorStop(0, 'rgba(116, 85, 221, 0.35)');
+    glow.addColorStop(1, 'rgba(116, 85, 221, 0)');
+    ctx.fillStyle = glow;
     ctx.fillRect(0, 0, this.canvasSize, this.canvasSize);
   }
 
   drawTitle(ctx) {
     // Title
-    ctx.fillStyle = '#9B5DE5';
-    ctx.font = 'bold 36px Outfit, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 34px Poppins, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('AspiriFridays Bingo', this.canvasSize / 2, 50);
     
     // Bingo status
     if (this.bingoLines.length > 0) {
-      ctx.fillStyle = '#FF1493';
-      ctx.font = 'bold 24px Rubik, sans-serif';
-      ctx.fillText('🎉 BINGO! 🎉', this.canvasSize / 2, 85);
+      ctx.fillStyle = '#b9aaee';
+      ctx.font = '700 22px Poppins, sans-serif';
+      ctx.fillText('Bingo!', this.canvasSize / 2, 85);
     }
   }
 
@@ -71,7 +73,7 @@ export class BingoImageGenerator {
     const gridY = 120;
     
     // Grid container background
-    ctx.fillStyle = 'rgba(155, 93, 229, 0.1)';
+    ctx.fillStyle = '#1a1830';
     this.roundRect(ctx, gridX - 10, gridY - 10, this.gridSize + 20, this.gridSize + 20, 15);
     ctx.fill();
     
@@ -129,14 +131,11 @@ export class BingoImageGenerator {
 
   drawSquareBackground(ctx, x, y, square) {
     if (square.marked) {
-      const gradient = square.type === 'free' 
-        ? this.createGradient(ctx, x, y, '#FF1493', '#FF69B4')
-        : this.createGradient(ctx, x, y, '#9B5DE5', '#7C3AED');
-      ctx.fillStyle = gradient;
+      ctx.fillStyle = square.type === 'free' ? '#dcd5f6' : '#7455dd';
     } else if (square.type === 'free') {
-      ctx.fillStyle = this.createGradient(ctx, x, y, '#FF1493', '#FF69B4');
+      ctx.fillStyle = '#dcd5f6';
     } else {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fillStyle = '#221f3a';
     }
     
     this.roundRect(ctx, x, y, this.squareSize, this.squareSize, 10);
@@ -146,19 +145,16 @@ export class BingoImageGenerator {
   drawSquareBorder(ctx, x, y, index) {
     const isBingoSquare = this.isPartOfBingo(index);
     
-    ctx.strokeStyle = isBingoSquare ? '#FF1493' : 'rgba(155, 93, 229, 0.3)';
-    ctx.lineWidth = 2;
+    if (isBingoSquare && this.currentBoard[index]?.type !== 'free') {
+      ctx.fillStyle = this.createGradient(ctx, x, y, '#7455dd', '#b30f87');
+      this.roundRect(ctx, x, y, this.squareSize, this.squareSize, 10);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = isBingoSquare ? '#b30f87' : 'rgba(185, 170, 238, 0.14)';
+    ctx.lineWidth = 1;
     this.roundRect(ctx, x, y, this.squareSize, this.squareSize, 10);
     ctx.stroke();
-    
-    // Bingo glow effect
-    if (isBingoSquare) {
-      ctx.shadowColor = '#FF1493';
-      ctx.shadowBlur = 10;
-      ctx.strokeStyle = '#FF1493';
-      this.roundRect(ctx, x, y, this.squareSize, this.squareSize, 10);
-      ctx.stroke();
-    }
   }
 
   drawSquareContent(ctx, x, y, square, aspireImg) {
@@ -177,18 +173,18 @@ export class BingoImageGenerator {
       ctx.drawImage(aspireImg, logoX, logoY, logoSize, logoSize);
     } else {
       // Fallback text
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 16px Rubik, sans-serif';
+      ctx.fillStyle = '#512bd4';
+      ctx.font = '700 16px Poppins, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('FREE', x + this.squareSize/2, y + this.squareSize/2 - 4);
-      ctx.font = 'bold 12px Rubik, sans-serif';
+      ctx.font = '700 12px Poppins, sans-serif';
       ctx.fillText('SPACE', x + this.squareSize/2, y + this.squareSize/2 + 12);
     }
   }
 
   drawTextContent(ctx, x, y, square) {
-    ctx.fillStyle = square.marked ? 'white' : 'rgba(255, 255, 255, 0.9)';
-    ctx.font = '11px Rubik, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = square.marked ? '600 11px Poppins, sans-serif' : '500 11px Poppins, sans-serif';
     ctx.textAlign = 'center';
     
     const lines = this.wrapText(ctx, square.label, this.squareSize - 16);
@@ -220,8 +216,8 @@ export class BingoImageGenerator {
   }
 
   drawFooter(ctx) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.font = '12px Rubik, sans-serif';
+    ctx.fillStyle = '#a8a2c6';
+    ctx.font = '12px Poppins, sans-serif';
     ctx.textAlign = 'center';
     
     const today = new Date().toLocaleDateString('en-US', { 

@@ -1,36 +1,52 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">🎯 Bingo Admin</a>
+@inject BingoBoard.Admin.Services.AppVersionInfoProvider VersionInfoProvider
+
+<div class="rail-top">
+    <a class="admin-brand" href="">
+        <img src="/aspire-logo-256.png" alt="" aria-hidden="true" />
+        <span>AspiriFridays</span>
+        <span class="admin-brand__tag">Admin</span>
+    </a>
+</div>
+
+<input type="checkbox" class="navbar-toggler" title="Navigation menu" aria-label="Toggle navigation" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="rail-nav" aria-label="Admin">
+        <NavLink class="rail-link" href="" Match="NavLinkMatch.All">
+            <i class="fas fa-gauge-high" aria-hidden="true"></i> Dashboard
+        </NavLink>
+        <NavLink class="rail-link" href="board-management">
+            <i class="fas fa-table-cells-large" aria-hidden="true"></i> Live board
+        </NavLink>
+        <NavLink class="rail-link" href="squares-management">
+            <i class="fas fa-shapes" aria-hidden="true"></i> Square library
+        </NavLink>
+        <NavLink class="rail-link" href="account">
+            <i class="fas fa-key" aria-hidden="true"></i> Account
+        </NavLink>
+    </nav>
+
+    <div class="rail-footer">
+        <a class="rail-footer__link" href="https://aspire.dev" target="_blank" rel="noopener">
+            <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> aspire.dev
+        </a>
+        <AuthorizeView>
+            <Authorized>
+                <form method="post" action="/auth/logout">
+                    <AntiforgeryToken />
+                    <button type="submit" class="rail-footer__link">
+                        <i class="fas fa-arrow-right-from-bracket" aria-hidden="true"></i> Sign out
+                    </button>
+                </form>
+            </Authorized>
+        </AuthorizeView>
+        <p class="rail-version">
+            <a href="@VersionInfo.CommitUrl" target="_blank" rel="noopener">@VersionInfo.CommitHash</a>
+            · .NET @VersionInfo.DotNetVersion · Aspire @VersionInfo.AspireVersion
+        </p>
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="fas fa-tachometer-alt me-2" aria-hidden="true"></span> Dashboard
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="board-management">
-                <span class="fas fa-th-large me-2" aria-hidden="true"></span> Board Management
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="squares-management">
-                <span class="fas fa-puzzle-piece me-2" aria-hidden="true"></span> Squares Management
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="account">
-                <span class="fas fa-th-large me-2" aria-hidden="true"></span> Account
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
+@code {
+    private BingoBoard.Admin.Services.AppVersionInfo VersionInfo => VersionInfoProvider.GetVersionInfo();
+}
