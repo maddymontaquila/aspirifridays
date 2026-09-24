@@ -7,45 +7,37 @@
 @inject ApplicationDbContext DbContext
 @inject ILogger<SquaresManagement> Logger
 
-<PageTitle>Squares Management - Bingo Admin</PageTitle>
+<PageTitle>Square library · AspiriFridays Admin</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4">
-                <i class="fas fa-puzzle-piece"></i> Squares Management
-            </h1>
-            <p class="text-muted">Add, edit, or remove bingo squares from the game.</p>
-        </div>
-    </div>
+<div class="page-header">
+    <h1>Square library</h1>
+</div>
 
-    <!-- Add New Square Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-primary">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-plus-circle"></i> Add New Square
-                    </h5>
+<div class="stack">
+    <div>
+        <div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Add a square</h2>
                 </div>
                 <div class="card-body">
                     <EditForm Model="newSquare" OnValidSubmit="AddSquare" FormName="addSquare">
                         <DataAnnotationsValidator />
                         <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label">ID (unique slug)</label>
-                                <InputText @bind-Value="newSquare.Id" class="form-control" placeholder="e.g., my-new-square" />
+                            <div class="col-md-6 col-xl-3">
+                                <label class="form-label">ID</label>
+                                <InputText @bind-Value="newSquare.Id" class="form-control" placeholder="my-new-square" />
                                 <ValidationMessage For="@(() => newSquare.Id)" />
                             </div>
-                            <div class="col-md-5">
-                                <label class="form-label">Label (display text)</label>
-                                <InputText @bind-Value="newSquare.Label" class="form-control" placeholder="e.g., Someone says something funny" />
+                            <div class="col-md-6 col-xl-5">
+                                <label class="form-label">Label</label>
+                                <InputText @bind-Value="newSquare.Label" class="form-control" placeholder="Someone says something funny" />
                                 <ValidationMessage For="@(() => newSquare.Label)" />
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-6 col-xl-2">
                                 <label class="form-label">Type</label>
                                 <InputSelect @bind-Value="newSquare.Type" class="form-select">
-                                    <option value="">Select type...</option>
+                                    <option value="">Choose…</option>
                                     <option value="quote">Quote</option>
                                     <option value="dev">Dev Moment</option>
                                     <option value="bug">Bug</option>
@@ -54,7 +46,7 @@
                                     <option value="free">Free Space</option>
                                 </InputSelect>
                             </div>
-                            <div class="col-md-2 d-flex align-items-end">
+                            <div class="col-md-6 col-xl-2 d-flex align-items-end">
                                 <button type="submit" class="btn btn-primary w-100" disabled="@isAdding">
                                     @if (isAdding)
                                     {
@@ -76,20 +68,14 @@
         </div>
     </div>
 
-    <!-- Existing Squares Section -->
-    <div class="row">
-        <div class="col-12">
+    <div>
+        <div>
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-list"></i> All Squares
-                        <span class="badge bg-secondary ms-2">@squares.Count</span>
-                    </h5>
-                    <div>
-                        <button @onclick="LoadSquares" class="btn btn-outline-secondary btn-sm">
-                            <i class="fas fa-sync-alt"></i> Refresh
-                        </button>
-                    </div>
+                <div class="card-header">
+                    <h2 class="card-title">Squares <span class="count">@squares.Count</span></h2>
+                    <button @onclick="LoadSquares" class="btn btn-ghost btn-sm">
+                        <i class="fas fa-rotate" aria-hidden="true"></i> Refresh
+                    </button>
                 </div>
                 <div class="card-body">
                     @if (isLoading)
@@ -102,31 +88,30 @@
                     }
                     else if (!squares.Any())
                     {
-                        <div class="alert alert-info mb-0">
-                            <i class="fas fa-info-circle"></i> No squares found. Add your first square above!
-                        </div>
+                        <p class="empty">No squares yet</p>
+
                     }
                     else
                     {
                         <div class="table-responsive">
                             <table class="table table-hover align-middle">
-                                <thead class="table-light">
+                                <thead>
                                     <tr>
-                                        <th style="width: 50px;">#</th>
-                                        <th style="width: 150px;">ID</th>
-                                        <th>Label</th>
-                                        <th style="width: 100px;">Type</th>
-                                        <th style="width: 80px;">Active</th>
-                                        <th style="width: 150px;">Actions</th>
+                                        <th class="col-fit col-index">#</th>
+                                        <th class="col-fit">ID</th>
+                                        <th class="col-label">Label</th>
+                                        <th class="col-fit">Type</th>
+                                        <th class="col-fit">Active</th>
+                                        <th class="col-fit"><span class="visually-hidden">Actions</span></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach (var square in squares)
                                     {
                                         <tr class="@(!square.IsActive ? "table-secondary" : "")">
-                                            <td>@(squares.IndexOf(square) + 1)</td>
-                                            <td><code>@square.Id</code></td>
-                                            <td>
+                                            <td class="col-index text-muted">@(squares.IndexOf(square) + 1)</td>
+                                            <td class="col-fit"><code>@square.Id</code></td>
+                                            <td class="col-label">
                                                 @if (editingSquareId == square.Id)
                                                 {
                                                     <input type="text" @bind="editLabel" class="form-control form-control-sm" />
@@ -136,7 +121,7 @@
                                                     @square.Label
                                                 }
                                             </td>
-                                            <td>
+                                            <td class="col-fit">
                                                 @if (editingSquareId == square.Id)
                                                 {
                                                     <select @bind="editType" class="form-select form-select-sm">
@@ -153,7 +138,7 @@
                                                     <span class="badge @GetTypeBadgeClass(square.Type)">@(square.Type ?? "default")</span>
                                                 }
                                             </td>
-                                            <td>
+                                            <td class="col-fit">
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" 
                                                            type="checkbox" 
@@ -161,7 +146,7 @@
                                                            @onchange="@(() => ToggleActive(square))" />
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td class="col-fit">
                                                 @if (editingSquareId == square.Id)
                                                 {
                                                     <button @onclick="SaveEdit" class="btn btn-success btn-sm me-1" disabled="@isSaving">

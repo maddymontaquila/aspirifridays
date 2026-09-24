@@ -7,308 +7,188 @@
 @inject AddressResolver AddressResolver
 @implements IAsyncDisposable
 
-<PageTitle>Board Management - Bingo Admin</PageTitle>
+<PageTitle>Live board · AspiriFridays Admin</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4">
-                <i class="fas fa-th-large"></i> Board Management
-            </h1>
-            <p class="text-muted">Manage all available bingo squares and approve client requests.</p>
-        </div>
+<div class="page-header">
+    <div>
+        <h1>Live board</h1>
+        <p>Run the stream session and approve player requests.</p>
     </div>
+</div>
 
-    <!-- Live Mode Toggle Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card @(isLiveMode ? "border-danger" : "border-success")">
-                <div class="card-header @(isLiveMode ? "bg-danger text-white" : "bg-success text-white")">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">
-                            <i class="fas @(isLiveMode ? "fa-broadcast-tower" : "fa-gamepad")"></i> 
-                            Stream Status: @(isLiveMode ? "🔴 LIVE" : "✅ FREE PLAY")
-                        </h5>
-                        <div class="btn-group">
-                            @if (!isLiveMode)
-                            {
-                                <button @onclick="StartStream" 
-                                        class="btn btn-light btn-sm"
-                                        disabled="@isProcessingStreamAction">
-                                    <i class="fas fa-play"></i> Start Stream
-                                </button>
-                            }
-                            else
-                            {
-                                <button @onclick="EndStream" 
-                                        class="btn btn-light btn-sm"
-                                        disabled="@isProcessingStreamAction">
-                                    <i class="fas fa-stop"></i> End Stream
-                                </button>
-                            }
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    @if (isLiveMode)
-                    {
-                        <div class="alert alert-danger mb-3">
-                            <i class="fas fa-video"></i>
-                            <strong>Live Stream Mode Active:</strong> 
-                            Clients must request approval to mark squares. Use the approval workflow below to manage requests.
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button @onclick="EndStream" 
-                                    class="btn btn-outline-danger"
-                                    disabled="@isProcessingStreamAction">
-                                <i class="fas fa-stop-circle"></i> End Stream Session
-                                <small class="d-block text-muted">(Resets all squares & returns to free play)</small>
-                            </button>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="alert alert-success mb-3">
-                            <i class="fas fa-play"></i>
-                            <strong>Free Play Mode Active:</strong> 
-                            Clients can freely mark squares without approval. Perfect for when there's no live stream happening.
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button @onclick="StartStream" 
-                                    class="btn btn-outline-primary"
-                                    disabled="@isProcessingStreamAction">
-                                <i class="fas fa-broadcast-tower"></i> Start New Stream Session
-                                <small class="d-block text-muted">(Resets all squares & enables approval mode)</small>
-                            </button>
-                        </div>
-                    }
-                </div>
-            </div>
+<div class="stack">
+    <section class="card stream-bar @(isLiveMode ? "is-live" : "")" aria-label="Stream status">
+        <div class="stream-bar__state">
+            <span class="status @(isLiveMode ? "status--live" : "status--ok")">@(isLiveMode ? "Live" : "Free play")</span>
+            <p>
+                @if (isLiveMode)
+                {
+                    <text>Players need approval to mark squares. Ending the stream resets every board.</text>
+                }
+                else
+                {
+                    <text>Players mark squares freely. Starting a stream resets every board and turns on approvals.</text>
+                }
+            </p>
         </div>
-    </div>
-
+        @if (isLiveMode)
+        {
+            <button @onclick="EndStream" class="btn btn-outline-danger" disabled="@isProcessingStreamAction">
+                <i class="fas fa-stop" aria-hidden="true"></i> End stream
+            </button>
+        }
+        else
+        {
+            <button @onclick="StartStream" class="btn btn-primary" disabled="@isProcessingStreamAction">
+                <i class="fas fa-play" aria-hidden="true"></i> Start stream
+            </button>
+        }
+    </section>
     <!-- Pending Approval Requests Section -->
     @if (isLiveMode && pendingApprovals.Any())
     {
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-warning">
-                    <div class="card-header bg-warning text-dark">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="card-title mb-0">
-                                <i class="fas fa-clock"></i> Pending Approval Requests
-                                <span class="badge bg-dark ms-2">@pendingApprovals.Count</span>
-                            </h5>
-                            <div class="btn-group">
-                                <button @onclick="ApproveAllRequests" 
-                                        class="btn btn-success btn-sm me-2"
-                                        disabled="@isProcessingApproval">
-                                    <i class="fas fa-check-double"></i> Approve All (@pendingApprovals.Count)
-                                </button>
-                                <button @onclick="LoadPendingApprovals" class="btn btn-outline-dark btn-sm">
-                                    <i class="fas fa-sync-alt"></i> Refresh
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            @foreach (var approvalGroup in pendingApprovals
-                                .GroupBy(a => new { a.SquareId, a.RequestedState })
-                                .OrderBy(g => g.First().RequestedAt))
-                            {
-                                var firstApproval = approvalGroup.First();
-                                var requestCount = approvalGroup.Count();
-                                
-                                <div class="col-lg-6 col-md-12 mb-3">
-                                    <div class="approval-request-card">
-                                        <div class="approval-header">
-                                            <span class="badge bg-warning text-dark">PENDING</span>
-                                            <small class="text-muted">@firstApproval.RequestedAt.ToString("HH:mm:ss")</small>
-                                        </div>
-                                        <div class="approval-content">
-                                            <h6 class="mb-2">@firstApproval.SquareLabel</h6>
-                                            <p class="mb-2">
-                                                @if (requestCount > 1)
-                                                {
-                                                    <text><strong>@requestCount clients</strong> want to <strong>@(firstApproval.RequestedState ? "CHECK" : "UNCHECK")</strong> this square</text>
-                                                }
-                                                else
-                                                {
-                                                    <text>Client wants to <strong>@(firstApproval.RequestedState ? "CHECK" : "UNCHECK")</strong> this square</text>
-                                                }
-                                            </p>
-                                            @if (requestCount > 1)
-                                            {
-                                                <small class="text-info mb-2 d-block">
-                                                    <i class="fas fa-info-circle"></i> 
-                                                    Approving/denying will affect all @requestCount requests
-                                                </small>
-                                            }
-                                            <small class="text-muted">
-                                                @if (requestCount == 1)
-                                                {
-                                                    <text>Client ID: @firstApproval.ClientId.Substring(0, Math.Min(8, firstApproval.ClientId.Length))...</text>
-                                                }
-                                                else
-                                                {
-                                                    <text>Multiple clients: @string.Join(", ", approvalGroup.Take(3).Select(a => a.ClientId.Substring(0, Math.Min(6, a.ClientId.Length)) + "..."))</text>
-                                                    @if (requestCount > 3)
-                                                    {
-                                                        <text> and @(requestCount - 3) more</text>
-                                                    }
-                                                }
-                                            </small>
-                                        </div>
-                                        <div class="approval-actions">
-                                            <button @onclick="async () => await ApproveRequest(firstApproval.Id)" 
-                                                    class="btn btn-success btn-sm me-2"
-                                                    disabled="@isProcessingApproval">
-                                                <i class="fas fa-check"></i> Approve @(requestCount > 1 ? $"All ({requestCount})" : "")
-                                            </button>
-                                            <button @onclick="() => ShowDenyModal(firstApproval)" 
-                                                    class="btn btn-danger btn-sm"
-                                                    disabled="@isProcessingApproval">
-                                                <i class="fas fa-times"></i> Deny @(requestCount > 1 ? $"All ({requestCount})" : "")
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+        <section class="card" aria-labelledby="approvals-title">
+            <div class="card-header">
+                <h2 class="card-title" id="approvals-title">
+                    Pending approvals <span class="badge bg-warning">@pendingApprovals.Count</span>
+                </h2>
+                <div class="page-actions">
+                    <button @onclick="LoadPendingApprovals" class="btn btn-ghost btn-sm">
+                        <i class="fas fa-rotate" aria-hidden="true"></i> Refresh
+                    </button>
+                    <button @onclick="ApproveAllRequests" class="btn btn-success btn-sm" disabled="@isProcessingApproval">
+                        <i class="fas fa-check-double" aria-hidden="true"></i> Approve all
+                    </button>
                 </div>
             </div>
-        </div>
+            <div class="card-body">
+                <div class="approval-grid">
+                    @foreach (var approvalGroup in pendingApprovals
+                        .GroupBy(a => new { a.SquareId, a.RequestedState })
+                        .OrderBy(g => g.First().RequestedAt))
+                    {
+                        var firstApproval = approvalGroup.First();
+                        var requestCount = approvalGroup.Count();
+
+                        <article class="approval-card">
+                            <div class="approval-card__head">
+                                <span class="status status--warn">@(firstApproval.RequestedState ? "Mark" : "Unmark")</span>
+                                <time>@firstApproval.RequestedAt.ToString("HH:mm:ss")</time>
+                            </div>
+                            <h3>@firstApproval.SquareLabel</h3>
+                            <p class="approval-card__meta">
+                                @if (requestCount > 1)
+                                {
+                                    <text>@requestCount players · @string.Join(", ", approvalGroup.Take(3).Select(a => a.ClientId[..Math.Min(6, a.ClientId.Length)]))@(requestCount > 3 ? $" +{requestCount - 3}" : "")</text>
+                                }
+                                else
+                                {
+                                    <text>Player <span class="mono">@firstApproval.ClientId[..Math.Min(8, firstApproval.ClientId.Length)]</span></text>
+                                }
+                            </p>
+                            <div class="approval-card__actions">
+                                <button @onclick="async () => await ApproveRequest(firstApproval.Id)"
+                                        class="btn btn-success btn-sm"
+                                        disabled="@isProcessingApproval">
+                                    Approve@(requestCount > 1 ? $" {requestCount}" : "")
+                                </button>
+                                <button @onclick="() => ShowDenyModal(firstApproval)"
+                                        class="btn btn-outline-danger btn-sm"
+                                        disabled="@isProcessingApproval">
+                                    Deny
+                                </button>
+                            </div>
+                        </article>
+                    }
+                </div>
+            </div>
+        </section>
     }
 
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-grid"></i> All Available Squares
-                        <span class="badge bg-primary ms-2">@allSquares.Count</span>
-                    </h5>
-                    <div>
-                        <button @onclick="LoadAllSquares" class="btn btn-outline-primary btn-sm me-2">
-                            <i class="fas fa-sync-alt"></i> Refresh
-                        </button>
-                        <button @onclick="ShowCheckedOnly" class="btn btn-outline-success btn-sm me-2">
-                            <i class="fas fa-check"></i> Show Checked (@allSquares.Count(s => s.IsChecked))
-                        </button>
-                        <button @onclick="ShowAllSquares" class="btn btn-outline-secondary btn-sm">
-                            <i class="fas fa-eye"></i> Show All
-                        </button>
-                    </div>
+    <section class="card" aria-labelledby="squares-title">
+        <div class="card-header">
+            <h2 class="card-title" id="squares-title">
+                Squares <span class="count">@allSquares.Count(s => s.IsChecked) / @allSquares.Count marked</span>
+            </h2>
+            <div class="page-actions">
+                <div class="segmented" role="group" aria-label="Filter squares">
+                    <button type="button" aria-pressed="@((!showCheckedOnly).ToString().ToLowerInvariant())" @onclick="ShowAllSquares">All</button>
+                    <button type="button" aria-pressed="@showCheckedOnly.ToString().ToLowerInvariant()" @onclick="ShowCheckedOnly">Marked</button>
                 </div>
-                <div class="card-body">
-                    @if (isLoading)
-                    {
-                        <div class="text-center">
-                            <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p class="mt-2">Loading squares...</p>
-                        </div>
-                    }
-                    else if (displaySquares.Any())
-                    {
-                        <div class="row">
-                            @foreach (var square in displaySquares.OrderBy(s => s.Type).ThenBy(s => s.Label))
-                            {
-                                var hasPendingRequest = pendingApprovals.Any(p => p.SquareId == square.Id);
-                                var pendingRequest = pendingApprovals.FirstOrDefault(p => p.SquareId == square.Id);
-                                
-                                <div class="col-lg-4 col-md-6 mb-3">
-                                    <div class="square-card @(square.IsChecked ? "square-checked" : "") @GetSquareTypeClass(square.Type) @(hasPendingRequest ? "square-pending-approval" : "")"
-                                         @onclick="async () => await ToggleSquareGlobally(square.Id, !square.IsChecked)">
-                                        <div class="square-header">
-                                            <span class="square-type badge">@square.Type</span>
-                                            <div class="square-status">
-                                                @if (hasPendingRequest)
-                                                {
-                                                    <i class="fas fa-clock text-warning me-1" title="Pending approval request"></i>
-                                                }
-                                                @if (square.IsChecked)
-                                                {
-                                                    <i class="fas fa-check-circle text-success"></i>
-                                                }
-                                                else
-                                                {
-                                                    <i class="far fa-circle text-muted"></i>
-                                                }
-                                            </div>
-                                        </div>
-                                        <div class="square-content">
-                                            <p class="square-text">@square.Label</p>
-                                            @if (hasPendingRequest && pendingRequest != null)
-                                            {
-                                                <div class="pending-indicator">
-                                                    <small class="text-warning">
-                                                        <i class="fas fa-clock"></i>
-                                                        Request to @(pendingRequest.RequestedState ? "CHECK" : "UNCHECK")
-                                                    </small>
-                                                </div>
-                                            }
-                                            <small class="square-id text-muted">ID: @square.Id</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="text-center text-muted">
-                            <i class="fas fa-inbox fa-3x mb-3"></i>
-                            <p>No squares found</p>
-                        </div>
-                    }
-                </div>
+                <button @onclick="LoadAllSquares" class="btn btn-ghost btn-sm">
+                    <i class="fas fa-rotate" aria-hidden="true"></i> Refresh
+                </button>
             </div>
         </div>
-    </div>
+        <div class="card-body">
+            @if (isLoading)
+            {
+                <p class="empty" role="status">Loading squares…</p>
+            }
+            else if (displaySquares.Any())
+            {
+                <div class="square-grid">
+                    @foreach (var square in displaySquares.OrderBy(s => s.Type).ThenBy(s => s.Label))
+                    {
+                        var pendingRequest = pendingApprovals.FirstOrDefault(p => p.SquareId == square.Id);
 
-    <!-- Activity Log Section -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-list"></i> Global Updates Log
-                        <button @onclick="ClearLog" class="btn btn-sm btn-outline-secondary ms-2">Clear</button>
-                    </h5>
-                </div>
-                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
-                    @if (activityLog.Any())
-                    {
-                        @foreach (var log in activityLog.OrderByDescending(l => l.Timestamp))
-                        {
-                            <div class="activity-item">
-                                <small class="text-muted">@log.Timestamp.ToString("HH:mm:ss")</small>
-                                <span class="ms-2">@log.Message</span>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-muted">No activity yet</p>
+                        <button type="button"
+                                class="square-card @(square.IsChecked ? "square-checked" : "") @(pendingRequest != null ? "square-pending" : "")"
+                                aria-pressed="@square.IsChecked.ToString().ToLowerInvariant()"
+                                title="@square.Id"
+                                @onclick="async () => await ToggleSquareGlobally(square.Id, !square.IsChecked)">
+                            <span class="square-card__meta">
+                                <span class="square-card__type">@square.Type</span>
+                                @if (pendingRequest != null)
+                                {
+                                    <span class="square-card__flag">@(pendingRequest.RequestedState ? "Mark" : "Unmark") requested</span>
+                                }
+                                else if (square.IsChecked)
+                                {
+                                    <i class="fas fa-check" aria-hidden="true"></i>
+                                }
+                            </span>
+                            <span class="square-card__label">@square.Label</span>
+                        </button>
                     }
                 </div>
-            </div>
+            }
+            else
+            {
+                <p class="empty">@(showCheckedOnly ? "No squares marked yet" : "No squares found")</p>
+            }
         </div>
-    </div>
+    </section>
+
+    <section class="card" aria-labelledby="log-title">
+        <div class="card-header">
+            <h2 class="card-title" id="log-title">Activity</h2>
+            <button @onclick="ClearLog" class="btn btn-ghost btn-sm" disabled="@(!activityLog.Any())">Clear</button>
+        </div>
+        @if (activityLog.Any())
+        {
+            <ul class="log card-scroll">
+                @foreach (var log in activityLog.OrderByDescending(l => l.Timestamp))
+                {
+                    <li><time>@log.Timestamp.ToString("HH:mm:ss")</time><span>@log.Message</span></li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="empty">No activity yet</p>
+        }
+    </section>
 </div>
 
 <!-- Deny Request Modal -->
 @if (showDenyModalDialog && currentApprovalForDenial != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true" style="background-color: rgba(22,21,42,0.45);">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Deny Approval Request</h5>
+                    <h2 class="modal-title">Deny request</h2>
                     <button type="button" class="btn-close" @onclick="CancelDenyModal"></button>
                 </div>
                 <div class="modal-body">
@@ -327,15 +207,16 @@
                         </div>
                     }
                     <div class="mb-3">
-                        <label for="denyReason" class="form-label">Reason for denial (optional):</label>
+                        <label for="denyReason" class="form-label">Reason (optional)</label>
                         <textarea @bind="denyReason" id="denyReason" class="form-control" rows="3" 
-                                  placeholder="Provide a reason for denying this request..."></textarea>
+                                  placeholder="Add a note"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CancelDenyModal">Cancel</button>
                     <button type="button" class="btn btn-danger" @onclick="DenyRequest" disabled="@isProcessingApproval">
-                        <i class="fas fa-times"></i> Deny Request
+                        Deny
+
                     </button>
                 </div>
             </div>

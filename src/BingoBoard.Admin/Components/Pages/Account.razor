@@ -7,43 +7,35 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 
-<PageTitle>Account - Bingo Admin</PageTitle>
+<PageTitle>Account · AspiriFridays Admin</PageTitle>
 <StatusMessage />
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4">
-                <i class="fas fa-th-large"></i> Account
-            </h1>
-            <p class="text-muted">Manage the admin account.</p>
-        </div>
-    </div>
+<div class="page-header">
+    <h1>Account</h1>
+</div>
 
-    <!-- Passkeys Management Section -->
-    <div class="row">
-        <div class="col-12">
+<div class="stack">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-key"></i> Your Passkeys
+                <div class="card-header">
+                    <h2 class="card-title">
+                        Passkeys
                         @if (currentPasskeys is not null)
                         {
-                            <span class="badge bg-primary ms-2">@currentPasskeys.Count</span>
+                            <span class="count">@currentPasskeys.Count</span>
                         }
-                    </h5>
+                    </h2>
                     <form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
                         <AntiforgeryToken />
                         @if (currentPasskeys is { Count: >= MaxPasskeyCount })
                         {
                             <button type="button" class="btn btn-primary btn-sm" disabled title="Maximum passkeys reached">
-                                <i class="fas fa-plus"></i> Add Passkey
+                                <i class="fas fa-plus" aria-hidden="true"></i> Add passkey
                             </button>
                         }
                         else
                         {
                             <PasskeySubmit Operation="PasskeyOperation.Create" Name="@nameof(SubmittedPasskey)" class="btn btn-primary btn-sm">
-                                <i class="fas fa-plus"></i> Add Passkey
+                                <i class="fas fa-plus" aria-hidden="true"></i> Add passkey
                             </PasskeySubmit>
                         }
                     </form>
@@ -103,7 +95,7 @@
                                                     }
                                                     else
                                                     {
-                                                        <em class="text-muted">Unnamed Passkey</em>
+                                                        <em class="text-muted">Unnamed passkey</em>
                                                     }
                                                 </h6>
                                                 <small class="text-muted">
@@ -113,7 +105,7 @@
                                             <form @formname="@($"edit-passkey-{passkeyIdBase64Url}")" @onsubmit="EditPasskey" method="post">
                                                 <AntiforgeryToken />
                                                 <input type="hidden" name="edit-id" value="@passkeyIdBase64Url" />
-                                                <button type="submit" name="edit-action" value="rename" class="btn btn-outline-primary btn-sm me-2">
+                                                <button type="submit" name="edit-action" value="rename" class="btn btn-outline-secondary btn-sm me-2">
                                                     <i class="fas fa-edit"></i> Rename
                                                 </button>
                                                 <button type="submit" name="edit-action" value="delete" class="btn btn-outline-danger btn-sm">
@@ -128,15 +120,11 @@
                     }
                     else if (currentPasskeys is not null)
                     {
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-key fa-3x mb-3"></i>
-                            <p>No passkeys found. Add your first passkey to get started.</p>
-                        </div>
+                        <p class="empty">No passkeys yet</p>
+
                     }
                 </div>
             </div>
-        </div>
-    </div>
 </div>
 
 @code {

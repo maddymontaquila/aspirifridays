@@ -1,98 +1,115 @@
 <template>
   <div class="bingo-container">
-    <!-- Connection Status -->
-    <div v-if="!isConnected || isReconnecting || isLoading || error" class="connection-status">
-      <div v-if="isLoading" class="status-message loading">
-        <i class="bi bi-arrow-clockwise spinning"></i>
-        <span>Connecting to server...</span>
+    <div v-if="!isConnected || isReconnecting || isLoading || error" class="connection-status" role="status" aria-live="polite">
+      <div v-if="isLoading" class="status-message">
+        <i class="bi bi-arrow-repeat spinning" aria-hidden="true"></i>
+        <span>Connecting…</span>
       </div>
-      <div v-else-if="!isConnected && isReconnecting" class="status-message reconnecting">
-        <i class="bi bi-arrow-clockwise spinning"></i>
-        <span>Reconnecting to server...</span>
+      <div v-else-if="!isConnected && isReconnecting" class="status-message">
+        <i class="bi bi-arrow-repeat spinning" aria-hidden="true"></i>
+        <span>Reconnecting…</span>
       </div>
-      <div v-else-if="!isConnected" class="status-message disconnected">
-        <i class="bi bi-exclamation-triangle"></i>
-        <span>Disconnected from server</span>
+      <div v-else-if="!isConnected" class="status-message status-message--error">
+        <i class="bi bi-wifi-off" aria-hidden="true"></i>
+        <span>Connection lost. Refresh the page to rejoin.</span>
       </div>
-      <div v-if="error" class="status-message error">
-        <i class="bi bi-exclamation-circle"></i>
+      <div v-if="error" class="status-message status-message--error">
+        <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
         <span>{{ error }}</span>
       </div>
     </div>
 
     <div class="game-area">
-      <div class="bingo-board glass-card" 
-           :class="{ 'disabled': !isConnected || isLoading }"
-           role="grid" 
-           aria-label="Bingo board - 5 by 5 grid of AspiriFridays moments"
-           @keydown="handleKeydown"
-           @focus="onGridFocus"
-           @blur="onGridBlur"
-           tabindex="0">
-        
-        <BingoCelebrationOverlay 
-          v-if="hasBingo && showInitialCelebration"
-          @dismiss="dismissCelebration" />
-        
-        <BingoSquare
-          v-for="(square, index) in currentBoard" 
-          :key="square.id"
-          :square="square"
-          :index="index"
-          :is-focused="focusedIndex === index && gridHasFocus"
-          :is-bingo-line="isPartOfBingo(index)"
-          :is-pending="pendingSquares.has(square.id)"
-          :disabled="!isConnected || isLoading"
-          @toggle="toggleSquare" />
-      </div>
-      
-      <div class="sidebar">
-        <BingoCelebrationArea :has-bingo="hasBingo && !showInitialCelebration" />
-        
-        <div class="controls">
-          <button @click="requestNewBoard" 
-                  :disabled="!isConnected || isLoading"
-                  class="btn btn--primary"
-                  aria-label="Get a completely new bingo board">
-            <i class="bi bi-arrow-clockwise"></i>
-            <span>New Board</span>
-          </button>
-          
-          <button @click="downloadImage" 
-                  :disabled="!currentBoard.length"
-                  class="btn btn--accent"
-                  aria-label="Download an image of the current bingo board for sharing">
-            <i class="bi bi-download"></i>
-            <span>Download</span>
-          </button>
+      <section class="board-panel" aria-label="Your bingo card">
+        <div class="board-letters" aria-hidden="true">
+          <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
         </div>
-        
-        <AspireCallout />
-        
-        <!-- Live Mode Indicator -->
-        <div class="mode-indicator" :class="{ 'live-mode': isLiveMode, 'free-play-mode': !isLiveMode }">
-          <div class="mode-header">
-            <i :class="isLiveMode ? 'bi bi-broadcast-pin' : 'bi bi-play-circle'"></i>
-            <span class="mode-title">{{ isLiveMode ? 'Live Stream Active' : 'Free Play Mode' }}</span>
+
+        <div class="bingo-board"
+             ref="board"
+             :class="{ 'disabled': !isConnected || isLoading, 'has-bingo': hasBingo }"
+             role="grid"
+             aria-label="Bingo board, 5 by 5 grid of AspiriFridays moments"
+             @keydown="handleKeydown"
+             @focus="onGridFocus"
+             @blur="onGridBlur"
+             tabindex="0">
+
+          <BingoCelebrationOverlay
+            v-if="hasBingo && showInitialCelebration"
+            @dismiss="dismissCelebration" />
+
+          <BingoSquare
+            v-for="(square, index) in currentBoard"
+            :key="square.id"
+            :square="square"
+            :index="index"
+            :is-focused="focusedIndex === index && gridHasFocus"
+            :is-bingo-line="isPartOfBingo(index)"
+            :is-pending="pendingSquares.has(square.id)"
+            :disabled="!isConnected || isLoading"
+            @toggle="toggleSquare" />
+
+          <template v-if="!currentBoard.length">
+            <div v-for="index in 25"
+                 :key="`loading-${index}`"
+                 class="bingo-square bingo-square--skeleton"
+                 aria-hidden="true">
+              <span></span>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <aside class="sidebar" aria-label="Game controls">
+        <div class="status-card" :class="isLiveMode ? 'is-live' : 'is-free'">
+          <div class="status-card__head">
+            <span class="status-pill">
+              <span class="status-pill__dot" aria-hidden="true"></span>
+              {{ isLiveMode ? 'Live now' : 'Free play' }}
+            </span>
+            <span v-if="currentBoard.length" class="mark-count">
+              <strong>{{ markedCount }}</strong> of {{ markableCount }} marked
+            </span>
           </div>
-          <p class="mode-description">
-            {{ isLiveMode 
-              ? 'Squares require admin approval before being marked'
-              : 'No live stream in progress - mark squares freely!' 
+          <p class="status-card__text">
+            {{ isLiveMode
+              ? 'The host confirms each square you mark.'
+              : 'No stream right now, so mark squares whenever you like.'
             }}
           </p>
-          
-          <!-- Catch Up Button (only in live mode) -->
-          <button v-if="isLiveMode" 
-                  @click="requestCatchUp" 
+
+          <button v-if="isLiveMode"
+                  type="button"
+                  @click="requestCatchUp"
                   :disabled="!isConnected || isCatchingUp"
-                  class="btn btn--catch-up"
-                  aria-label="Sync your board with currently approved squares">
-            <i :class="isCatchingUp ? 'bi bi-arrow-clockwise spinning' : 'bi bi-arrow-repeat'"></i>
-            <span>{{ isCatchingUp ? 'Syncing...' : 'Sync My Board' }}</span>
+                  class="btn btn--ghost btn--block"
+                  aria-label="Sync your board with squares the host has already confirmed">
+            <i :class="isCatchingUp ? 'bi bi-arrow-repeat spinning' : 'bi bi-arrow-repeat'" aria-hidden="true"></i>
+            <span>{{ isCatchingUp ? 'Syncing…' : 'Sync with the stream' }}</span>
           </button>
         </div>
-      </div>
+
+        <BingoCelebrationArea :has-bingo="hasBingo && !showInitialCelebration" />
+
+        <div class="controls">
+          <button type="button"
+                  @click="requestNewBoard"
+                  :disabled="!isConnected || isLoading"
+                  class="btn btn--primary">
+            <i class="bi bi-shuffle" aria-hidden="true"></i>
+            <span>New board</span>
+          </button>
+
+          <button type="button"
+                  @click="downloadImage"
+                  :disabled="!currentBoard.length"
+                  class="btn btn--secondary">
+            <i class="bi bi-download" aria-hidden="true"></i>
+            <span>Save image</span>
+          </button>
+        </div>
+      </aside>
     </div>
   </div>
 </template>
@@ -107,15 +124,13 @@ import { getPersistentClientId, clearPersistentClientId } from '../utils/clientI
 import BingoSquare from './BingoSquare.vue'
 import BingoCelebrationOverlay from './BingoCelebrationOverlay.vue'
 import BingoCelebrationArea from './BingoCelebrationArea.vue'
-import AspireCallout from './AspireCallout.vue'
 
 export default {
   name: 'BingoBoard',
   components: {
     BingoSquare,
     BingoCelebrationOverlay,
-    BingoCelebrationArea,
-    AspireCallout
+    BingoCelebrationArea
   },
   data() {
     return {
@@ -144,9 +159,41 @@ export default {
     },
     isReconnecting() {
       return this.connectionState.reconnecting
+    },
+    markableCount() {
+      return this.currentBoard.filter(square => square.type !== 'free').length
+    },
+    markedCount() {
+      return this.currentBoard.filter(square => square.type !== 'free' && square.marked).length
+    },
+    boardLabels() {
+      return this.currentBoard.map(square => square.label).join('|')
+    }
+  },
+  watch: {
+    boardLabels() {
+      this.$nextTick(() => this.scheduleTextFit())
     }
   },
   methods: {
+    scheduleTextFit() {
+      cancelAnimationFrame(this.textFitFrame)
+      this.textFitFrame = requestAnimationFrame(() => this.fitSquareText())
+    },
+
+    // Hyphenate only the tiles where a whole word would overflow; elsewhere
+    // soft hyphens stay dormant so balanced wrapping doesn't split words needlessly.
+    fitSquareText() {
+      const board = this.$refs.board
+      if (!board) return
+
+      const labels = [...board.querySelectorAll('.square-text')]
+      board.classList.add('is-measuring')
+      const overflowing = labels.map(label => label.scrollWidth > label.clientWidth + 1)
+      board.classList.remove('is-measuring')
+      labels.forEach((label, index) => label.classList.toggle('needs-hyphens', overflowing[index]))
+    },
+
     /**
      * Initialize SignalR connection and event handlers
      */
@@ -650,10 +697,16 @@ export default {
   },
   
   async mounted() {
+    this.boardResizeObserver = new ResizeObserver(() => this.scheduleTextFit())
+    this.boardResizeObserver.observe(this.$refs.board)
+    document.fonts?.ready.then(() => this.scheduleTextFit())
     await this.initializeSignalR()
   },
 
   async beforeUnmount() {
+    this.boardResizeObserver?.disconnect()
+    cancelAnimationFrame(this.textFitFrame)
+
     // Clean up SignalR event listeners
     signalRService.removeEventListener('connectionStateChanged', this.onConnectionStateChanged)
     signalRService.removeEventListener('bingoSetReceived', this.onBingoSetReceived)
@@ -682,212 +735,3 @@ export default {
   }
 }
 </script>
-
-<style scoped>
-/* Connection status styles */
-.connection-status {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1000;
-  max-width: 300px;
-}
-
-.status-message {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.status-message.loading {
-  background-color: #e0f2fe;
-  color: #0277bd;
-  border: 1px solid #81d4fa;
-}
-
-.status-message.reconnecting {
-  background-color: #fff3e0;
-  color: #ef6c00;
-  border: 1px solid #ffcc02;
-}
-
-.status-message.disconnected {
-  background-color: #ffebee;
-  color: #c62828;
-  border: 1px solid #ef5350;
-}
-
-.status-message.error {
-  background-color: #ffebee;
-  color: #c62828;
-  border: 1px solid #ef5350;
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.bingo-board.disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Global notification styles */
-.global-update-notification {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1000;
-  background-color: #fff3cd;
-  color: #856404;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid #ffeeba;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  animation: slideIn 0.3s ease-out, slideOut 0.3s ease-in 4.7s;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-/* Mode indicator styles */
-.mode-indicator {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: var(--glass-border);
-  border-radius: 1rem;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-}
-
-.mode-indicator.live-mode {
-  border-color: #dc3545;
-  background: rgba(220, 53, 69, 0.1);
-}
-
-.mode-indicator.free-play-mode {
-  border-color: #198754;
-  background: rgba(25, 135, 84, 0.1);
-}
-
-.mode-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.mode-title {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.live-mode .mode-title {
-  color: #dc3545;
-}
-
-.free-play-mode .mode-title {
-  color: #198754;
-}
-
-.mode-description {
-  font-size: 0.8rem;
-  color: var(--text-color);
-  opacity: 0.8;
-  margin: 0;
-  line-height: 1.3;
-}
-
-.live-mode .bi-broadcast-pin {
-  color: #dc3545;
-  animation: pulse 2s infinite;
-}
-
-.free-play-mode .bi-play-circle {
-  color: #198754;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-/* Catch-up button styles */
-.btn--catch-up {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #fff;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border: none;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn--catch-up:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.btn--catch-up:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.btn--catch-up .spinning {
-  animation: spin 1s linear infinite;
-}
-</style>

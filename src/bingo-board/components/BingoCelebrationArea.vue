@@ -1,8 +1,7 @@
 <template>
-  <div v-if="hasBingo" class="bingo-celebration-area">
-    <div class="bingo-celebration" role="alert" aria-live="polite">
-      🎉 BINGO! 🎉
-    </div>
+  <div v-if="hasBingo" class="bingo-banner" role="status">
+    <i class="bi bi-stars" aria-hidden="true"></i>
+    <span>You have bingo!</span>
   </div>
 </template>
 

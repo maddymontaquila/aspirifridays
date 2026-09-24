@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @rendermode InteractiveServer
 @attribute [Authorize]
 @using Microsoft.AspNetCore.SignalR.Client
@@ -8,183 +8,138 @@
 
 @implements IAsyncDisposable
 
-<PageTitle>Bingo Admin Dashboard</PageTitle>
+<PageTitle>Dashboard · AspiriFridays Admin</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="mb-4">AspiriFridays Bingo Admin Dashboard</h1>
-        </div>
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <div class="page-actions">
+        <button @onclick="RefreshClients" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-rotate" aria-hidden="true"></i> Refresh
+        </button>
+        <button @onclick="BroadcastMessage" class="btn btn-primary btn-sm">
+            <i class="fas fa-bullhorn" aria-hidden="true"></i> Send announcement
+        </button>
     </div>
+</div>
 
-    <div class="row">
-        <!-- Connected Clients Section -->
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-users"></i> Connected Clients
-                        <span class="badge bg-primary ms-2">@(ConnectedClients?.Count ?? 0)</span>
-                    </h5>
-                </div>
-                <div class="card-body">
-                    @if (ConnectedClients?.Any() == true)
-                    {
-                        <div class="list-group">
-                            @foreach (var client in ConnectedClients)
-                            {
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>@client.ConnectionId.Substring(0, 8)...</strong>
-                                        @if (!string.IsNullOrEmpty(client.UserName))
-                                        {
-                                            <br><small class="text-muted">@client.UserName</small>
-                                        }
-                                        <br><small class="text-muted">Connected: @client.ConnectedAt.ToString("HH:mm:ss")</small>
-                                    </div>
-                                    <div>
-                                        @if (!string.IsNullOrEmpty(client.CurrentBingoSetId))
-                                        {
-                                            <span class="badge bg-success">Has Board</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-warning">No Board</span>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="text-muted">No clients connected</p>
-                    }
-                </div>
+<div class="stack">
+    <div class="split-grid">
+        <section class="card" aria-labelledby="players-title">
+            <div class="card-header">
+                <h2 class="card-title" id="players-title">Connected players</h2>
+                <span class="count">@(ConnectedClients?.Count ?? 0)</span>
             </div>
-        </div>
-
-        <!-- Admin Controls Section -->
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-cogs"></i> Admin Controls
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>Bingo Squares Management</h6>
-                            <div class="mb-3">
-                                <label for="clientSelect" class="form-label">Select Client:</label>
-                                <select @bind="selectedClientConnectionId" class="form-select" id="clientSelect">
-                                    <option value="">-- Select a client --</option>
-                                    @foreach (var client in ConnectedClients?.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)) ?? [])
+            @if (ConnectedClients?.Any() == true)
+            {
+                <ul class="data-list card-scroll">
+                    @foreach (var client in ConnectedClients)
+                    {
+                        <li>
+                            <div class="data-list__primary">
+                                <strong class="mono">@ShortId(client.ConnectionId)</strong>
+                                <small>
+                                    @if (!string.IsNullOrEmpty(client.UserName))
                                     {
-                                        <option value="@client.ConnectionId">
-                                            @client.ConnectionId.Substring(0, 8)... 
-                                            @(!string.IsNullOrEmpty(client.UserName) ? $"({client.UserName})" : "")
-                                        </option>
+                                        <text>@client.UserName · </text>
                                     }
-                                </select>
+                                    Joined @client.ConnectedAt.ToString("HH:mm:ss")
+                                </small>
                             </div>
-                            
-                            @if (!string.IsNullOrEmpty(selectedClientConnectionId))
+                            @if (!string.IsNullOrEmpty(client.CurrentBingoSetId))
                             {
-                                <button @onclick="LoadClientBingoSet" class="btn btn-primary">
-                                    <i class="fas fa-sync-alt"></i> Load Client Board
-                                </button>
+                                <span class="status status--ok">Has board</span>
                             }
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <h6>Broadcast Controls</h6>
-                            <div class="d-grid gap-2">
-                                <button @onclick="BroadcastMessage" class="btn btn-info">
-                                    <i class="fas fa-bullhorn"></i> Send Announcement
-                                </button>
-                                <button @onclick="RefreshClients" class="btn btn-secondary">
-                                    <i class="fas fa-refresh"></i> Refresh Clients
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                            else
+                            {
+                                <span class="status status--idle">No board</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="empty">No players connected</p>
+            }
+        </section>
+
+        <section class="card" aria-labelledby="inspect-title">
+            <div class="card-header">
+                <h2 class="card-title" id="inspect-title">Inspect a board</h2>
+            </div>
+            <div class="card-body">
+                <label for="clientSelect" class="form-label">Player</label>
+                <div class="inline-field">
+                    <select @bind="selectedClientConnectionId" class="form-select" id="clientSelect">
+                        <option value="">Select a player</option>
+                        @foreach (var client in ConnectedClients?.Where(c => !string.IsNullOrEmpty(c.CurrentBingoSetId)) ?? [])
+                        {
+                            <option value="@client.ConnectionId">
+                                @ShortId(client.ConnectionId) @(!string.IsNullOrEmpty(client.UserName) ? $"({client.UserName})" : "")
+                            </option>
+                        }
+                    </select>
+                    <button @onclick="LoadClientBingoSet" class="btn btn-primary" disabled="@string.IsNullOrEmpty(selectedClientConnectionId)">
+                        Load board
+                    </button>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 
-    <!-- Current Client Board Section -->
     @if (currentClientBingoSet != null && !string.IsNullOrEmpty(selectedClientConnectionId))
     {
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-th"></i> Client Board: @selectedClientConnectionId?.Substring(0, 8)...
-                            @if (currentClientBingoSet.HasWin)
+        <section class="card" aria-labelledby="board-title">
+            <div class="card-header">
+                <h2 class="card-title" id="board-title">
+                    Board <span class="mono">@ShortId(selectedClientConnectionId)</span>
+                </h2>
+                @if (currentClientBingoSet.HasWin)
+                {
+                    <span class="badge bg-success">Bingo</span>
+                }
+            </div>
+            <div class="card-body">
+                <div class="bingo-grid">
+                    @for (int i = 0; i < 25; i++)
+                    {
+                        var square = currentClientBingoSet.Squares[i];
+
+                        <button type="button"
+                                class="bingo-square @(square.IsChecked ? "checked" : "") @(square.Type == "free" ? "square-free" : "")"
+                                aria-pressed="@square.IsChecked.ToString().ToLowerInvariant()"
+                                @onclick="() => ToggleSquare(square.Id, !square.IsChecked)">
+                            <span class="square-text">@square.Label</span>
+                            @if (square.IsChecked)
                             {
-                                <span class="badge bg-success ms-2">BINGO!</span>
+                                <i class="fas fa-check check-mark" aria-hidden="true"></i>
                             }
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="bingo-grid">
-                            @for (int i = 0; i < 25; i++)
-                            {
-                                var square = currentClientBingoSet.Squares[i];
-                                var row = i / 5;
-                                var col = i % 5;
-                                
-                                <div class="bingo-square @(square.IsChecked ? "checked" : "") @GetSquareTypeClass(square.Type)"
-                                     @onclick="() => ToggleSquare(square.Id, !square.IsChecked)">
-                                    <div class="square-content">
-                                        <span class="square-text">@square.Label</span>
-                                        @if (square.IsChecked)
-                                        {
-                                            <i class="fas fa-check check-mark"></i>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                        </button>
+                    }
                 </div>
             </div>
-        </div>
+        </section>
     }
 
-    <!-- Activity Log Section -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-list"></i> Activity Log
-                        <button @onclick="ClearLog" class="btn btn-sm btn-outline-secondary ms-2">Clear</button>
-                    </h5>
-                </div>
-                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
-                    @if (activityLog.Any())
-                    {
-                        @foreach (var log in activityLog.OrderByDescending(l => l.Timestamp))
-                        {
-                            <div class="activity-item">
-                                <small class="text-muted">@log.Timestamp.ToString("HH:mm:ss")</small>
-                                <span class="ms-2">@log.Message</span>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-muted">No activity yet</p>
-                    }
-                </div>
-            </div>
+    <section class="card" aria-labelledby="log-title">
+        <div class="card-header">
+            <h2 class="card-title" id="log-title">Activity</h2>
+            <button @onclick="ClearLog" class="btn btn-ghost btn-sm" disabled="@(!activityLog.Any())">Clear</button>
         </div>
-    </div>
+        @if (activityLog.Any())
+        {
+            <ul class="log card-scroll">
+                @foreach (var log in activityLog.OrderByDescending(l => l.Timestamp))
+                {
+                    <li><time>@log.Timestamp.ToString("HH:mm:ss")</time><span>@log.Message</span></li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="empty">No activity yet</p>
+        }
+    </section>
 </div>
 
 @code {
@@ -243,7 +198,7 @@
         {
             _ = InvokeAsync(() =>
             {
-                AddToLog("🎉 BINGO ACHIEVED! 🎉");
+                AddToLog("Bingo achieved");
                 StateHasChanged();
             });
         });
@@ -378,19 +333,7 @@
         StateHasChanged();
     }
 
-    private string GetSquareTypeClass(string? type)
-    {
-        return type switch
-        {
-            "bug" => "square-bug",
-            "dev" => "square-dev",
-            "quote" => "square-quote",
-            "oops" => "square-oops",
-            "meta" => "square-meta",
-            "free" => "square-free",
-            _ => ""
-        };
-    }
+    private static string ShortId(string? id) => string.IsNullOrEmpty(id) ? string.Empty : id[..Math.Min(8, id.Length)];
 
     public async ValueTask DisposeAsync()
     {
