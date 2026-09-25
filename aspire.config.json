@@ -1,5 +1,9 @@
 {
   "appHost": {
     "path": "src/apphost.cs"
-  }
+  },
+  "sdk": {
+    "version": "14.0.0-preview.1.26475.2"
+  },
+  "channel": "staging"
 }

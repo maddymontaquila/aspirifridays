@@ -4,18 +4,18 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Aspire packages -->
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.5.3" />
-    <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.PostgreSQL" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Redis" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Yarp" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.5.3-preview.1.26425.3" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.PostgreSQL" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Redis" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.Yarp" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="14.0.0-preview.1.26475.2" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="14.0.0-preview.1.26475.2" />
     <!-- Microsoft packages -->
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.12" />

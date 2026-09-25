@@ -45,8 +45,13 @@ internal static class AddSquaresCommand
                 ],
                 PrepareRequest = context =>
                 {
-                    if (!context.Arguments.TryGetByName("file", out var input) ||
-                        input.Files is not [var file])
+                    if (!context.Arguments.TryGetByName("file", out var input))
+                    {
+                        throw new InvalidOperationException("Select one JSON file.");
+                    }
+
+                    using var files = input.GetFiles();
+                    if (files is not [var file])
                     {
                         throw new InvalidOperationException("Select one JSON file.");
                     }

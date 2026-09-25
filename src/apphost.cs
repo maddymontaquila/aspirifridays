@@ -1,5 +1,6 @@
 ﻿#!/usr/bin/env dotnet
-#:sdk Aspire.AppHost.Sdk@13.5.3
+#:sdk Aspire.AppHost.Sdk@14.0.0-preview.1.26475.2
+#:property AspireUseCliBundle=true
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
 #:package Aspire.Hosting.Azure.Redis
@@ -33,12 +34,16 @@ var yarpDomain = builder.AddParameter("yarp-domain", "aspireify.live");
 var yarpCertName = builder.AddParameter("yarp-cert-name", "aspireify.live-envvevso-251017185247");
 
 var cache = builder.AddRedis("cache")
+    .WithRepl()
     .PublishAsBingoCache();
 
 var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
     .ConfigureBingoPostgres(postgresAzureLocation)
     .WithPasswordAuthentication()
-    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
+    .RunAsContainer(container => {
+        container.WithLifetime(ContainerLifetime.Persistent);
+        container.WithRepl();
+    });
 
 var db = postgres.AddDatabase("db")
     .WithPostgresMcp();
