@@ -49,6 +49,12 @@ secrets. The `existing-postgres-key-vault` parameter selects the existing vault
 in the deployment resource group; local orchestration still uses containerized
 PostgreSQL and runs migrations.
 
+The `live` deployment workflow verifies the personal Bingo subscription, tenant,
+resource group, and region before deployment. It also requires the configured
+cache password to match the existing Redis secret, so a stale CI secret cannot
+reset that credential. Target or credential mismatches fail without printing
+secret values.
+
 ## Project Structure
 
 ```
