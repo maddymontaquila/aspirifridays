@@ -2,6 +2,7 @@
 #:sdk Aspire.AppHost.Sdk@13.5.3
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
+#:package Aspire.Hosting.Azure.KeyVault
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
 #:package Aspire.Hosting.Redis
@@ -16,6 +17,7 @@
 #pragma warning disable
 
 using Microsoft.Extensions.Hosting;
+using Azure.Provisioning.OperationalInsights;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
@@ -24,9 +26,19 @@ var postgresAzureLocation = builder.Configuration["Azure:PostgresLocation"];
 
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
-builder.AddAzureContainerAppEnvironment("env");
+builder.AddAzureContainerAppEnvironment("env")
+    .ConfigureInfrastructure(infrastructure =>
+    {
+        var workspace = infrastructure.GetProvisionableResources()
+            .OfType<OperationalInsightsWorkspace>()
+            .Single();
+        workspace.RetentionInDays = 30;
+        workspace.WorkspaceCapping = new OperationalInsightsWorkspaceCapping
+        {
+            DailyQuotaInGB = 1
+        };
+    });
 
-var password = builder.AddParameter("admin-password", secret: true);
 var adminDomain = builder.AddParameter("admin-domain", "admin.aspireify.live");
 var adminCertName = builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301");
 var yarpDomain = builder.AddParameter("yarp-domain", "aspireify.live");
@@ -35,39 +47,50 @@ var yarpCertName = builder.AddParameter("yarp-cert-name", "aspireify.live-envvev
 var cache = builder.AddRedis("cache")
     .PublishAsBingoCache();
 
-var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
-    .ConfigureBingoPostgres(postgresAzureLocation)
-    .WithPasswordAuthentication()
-    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
-
-var db = postgres.AddDatabase("db")
-    .WithPostgresMcp();
-
-var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
-    .WithEnvironment("Authentication__AdminPassword", password)
-    .WithReference(db)
-    .WaitFor(db);
-
-
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
-    .WithReference(db)
-    .WithReference(migrations)
     .WaitFor(cache)
-    .WaitForCompletion(migrations)
     .WithBuildInfo(buildInfo)
     .WithExternalHttpEndpoints()
     .WithImportSquaresCommand()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
+
+if (builder.ExecutionContext.IsRunMode)
+{
+    var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+        .ConfigureBingoPostgres(postgresAzureLocation)
+        .WithPasswordAuthentication()
+        .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
+    var db = postgres.AddDatabase("db").WithPostgresMcp();
+    admin.WithReference(db);
+
+    var password = builder.AddParameter("admin-password", secret: true);
+    var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
+        .WithEnvironment("Authentication__AdminPassword", password)
+        .WithReference(db)
+        .WaitFor(db);
+
+    admin.WithReference(migrations).WaitForCompletion(migrations);
+}
+else
+{
+    var vaultName = builder.AddParameter("existing-postgres-key-vault", "postgreskv-vevsoulyfzw2y");
+    var vault = builder.AddAzureKeyVault("postgres-kv").AsExisting(vaultName, null);
+    admin.WithReference(vault)
+        .WithEnvironment("ConnectionStrings__db", vault.GetSecret("connectionstrings--db"));
+}
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithBuildInfo(buildInfo, prefix: "VITE_")
     .WithReference(admin)
     .WaitFor(admin);
 
-builder.AddCSharpApp("producer-console", "./producerconsole.cs")
-    .WithReference(admin).WaitFor(admin)
-    .WithTerminal();
+if (builder.ExecutionContext.IsRunMode)
+{
+    builder.AddCSharpApp("producer-console", "./producerconsole.cs")
+        .WithReference(admin).WaitFor(admin)
+        .WithTerminal();
+}
 
 builder.AddYarp("bingoboard")
     .WithConfiguration(c =>
