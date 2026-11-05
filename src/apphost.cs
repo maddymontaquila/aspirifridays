@@ -2,6 +2,7 @@
 #:sdk Aspire.AppHost.Sdk@13.5.3
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
+#:package Aspire.Hosting.Azure.KeyVault
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
 #:package Aspire.Hosting.Redis
@@ -46,17 +47,8 @@ var yarpCertName = builder.AddParameter("yarp-cert-name", "aspireify.live-envvev
 var cache = builder.AddRedis("cache")
     .PublishAsBingoCache();
 
-var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
-    .ConfigureBingoPostgres(postgresAzureLocation)
-    .WithPasswordAuthentication()
-    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
-
-var db = postgres.AddDatabase("db")
-    .WithPostgresMcp();
-
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
-    .WithReference(db)
     .WaitFor(cache)
     .WithBuildInfo(buildInfo)
     .WithExternalHttpEndpoints()
@@ -65,6 +57,13 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
 
 if (builder.ExecutionContext.IsRunMode)
 {
+    var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+        .ConfigureBingoPostgres(postgresAzureLocation)
+        .WithPasswordAuthentication()
+        .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
+    var db = postgres.AddDatabase("db").WithPostgresMcp();
+    admin.WithReference(db);
+
     var password = builder.AddParameter("admin-password", secret: true);
     var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
         .WithEnvironment("Authentication__AdminPassword", password)
@@ -72,6 +71,13 @@ if (builder.ExecutionContext.IsRunMode)
         .WaitFor(db);
 
     admin.WithReference(migrations).WaitForCompletion(migrations);
+}
+else
+{
+    var vaultName = builder.AddParameter("existing-postgres-key-vault", "postgreskv-vevsoulyfzw2y");
+    var vault = builder.AddAzureKeyVault("postgres-kv").AsExisting(vaultName, null);
+    admin.WithReference(vault)
+        .WithEnvironment("ConnectionStrings__db", vault.GetSecret("connectionstrings--db"));
 }
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")

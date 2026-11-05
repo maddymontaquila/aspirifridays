@@ -43,6 +43,12 @@ controlled migration run with the existing credentials. Omitted resources are
 not deleted by incremental deployment; verify the producer is absent and any
 previously deployed migration app remains stopped before deployment.
 
+Production reads the existing `connectionstrings--db` Key Vault secret using
+the app's managed identity. It does not deploy PostgreSQL or write database
+secrets. The `existing-postgres-key-vault` parameter selects the existing vault
+in the deployment resource group; local orchestration still uses containerized
+PostgreSQL and runs migrations.
+
 ## Project Structure
 
 ```
