@@ -26,6 +26,23 @@ aspire start
 
 That's it. Aspire handles spinning up PostgreSQL, Redis, the admin panel, and the Vue client.
 
+## Deployment safety
+
+The AppHost remains on Aspire 13.5.3. Its local-only MAUI hosting integration
+uses the published 13.1.1 preview because the previous preview pin is unavailable.
+
+The producer console is local-only and exits when standard input closes.
+Azure publishing sets the Bingo Log Analytics workspace to a 1 GB/day ingestion
+cap and 30-day retention. Daily caps can be exceeded before ingestion stops;
+budget alerts do not stop resources.
+
+The migration worker runs automatically only during local orchestration.
+Production deployment assumes the existing database is initialized and does not
+publish or start the migration Container App. Schema changes require a separate,
+controlled migration run with the existing credentials. Omitted resources are
+not deleted by incremental deployment; verify the producer is absent and any
+previously deployed migration app remains stopped before deployment.
+
 ## Project Structure
 
 ```

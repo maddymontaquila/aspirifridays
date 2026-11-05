@@ -13,7 +13,7 @@
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.Yarp" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.5.3-preview.1.26425.3" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.1.1-preview.1.26105.8" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.3" />
     <!-- Microsoft packages -->
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.12" />
