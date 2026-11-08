@@ -47,9 +47,13 @@ jobs:
       - name: Validate release
         run: |
           dotnet test --project ./src/BingoBoard.Admin.Tests/BingoBoard.Admin.Tests.csproj --configuration Release
+          python3 -B -m unittest discover -s deployment -p 'test_*.py'
           npm ci --prefix ./src/bingo-board
           npm audit --prefix ./src/bingo-board --audit-level=high
           npm run build --prefix ./src/bingo-board
+
+      - name: Guard routine production deployment
+        run: bash ./deployment/validate-publish.sh "$RUNNER_TEMP/production-safety"
       
       - name: Set version information
         run: |
@@ -73,14 +77,42 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
-      - name: Deploy with Aspire
+
+      - name: Verify personal Bingo deployment target
+        shell: bash
+        env:
+          TARGET_SUBSCRIPTION: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TARGET_TENANT: ${{ secrets.AZURE_TENANT_ID }}
+          TARGET_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          TARGET_LOCATION: ${{ secrets.AZURE_LOCATION || 'eastus2' }}
+          TARGET_CACHE_PASSWORD: ${{ secrets.CACHE_PASSWORD }}
         run: |
-          if [ -z "$Parameters__postgres_username" ] || [ -z "$Parameters__postgres_password" ]; then
-            echo "::error::Set POSTGRES_USER and POSTGRES_PASSWORD to the existing PostgreSQL administrator credentials before deploying."
+          set -euo pipefail
+          expected_subscription='2113f0e9-9b41-4726-82ee-04b39336df1a'
+          expected_tenant='bae18cc5-6d78-4894-b578-60f67cca2d5e'
+          if [[ "$TARGET_SUBSCRIPTION" != "$expected_subscription" ||
+                "$TARGET_TENANT" != "$expected_tenant" ||
+                "$TARGET_RESOURCE_GROUP" != 'rg-bingo-aca-1' ||
+                "$TARGET_LOCATION" != 'eastus2' ||
+                "$(az account show --query id -o tsv)" != "$expected_subscription" ||
+                "$(az account show --query tenantId -o tsv)" != "$expected_tenant" ]]; then
+            echo '::error::Deployment target does not match the approved personal Bingo environment.'
             exit 1
           fi
-          aspire deploy --apphost ./src/apphost.cs --environment Production --non-interactive
+          existing_cache_password="$(az containerapp secret list \
+            --subscription "$expected_subscription" \
+            --resource-group "$TARGET_RESOURCE_GROUP" \
+            --name cache --show-values \
+            --query "[?name=='redis-password'].value | [0]" -o tsv)"
+          if [[ -z "$existing_cache_password" ||
+                "$existing_cache_password" != "$TARGET_CACHE_PASSWORD" ]]; then
+            echo '::error::Deployment would change the existing Bingo cache credential.'
+            exit 1
+          fi
+          unset existing_cache_password
+      
+      - name: Deploy with Aspire
+        run: dotnet run ./deployment/deploy.cs
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
           DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -90,10 +122,8 @@ jobs:
           DOTNET_MULTILEVEL_LOOKUP: 0
           DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus' }}
-          Azure__PostgresLocation: ${{ secrets.AZURE_POSTGRES_LOCATION || secrets.AZURE_LOCATION || 'eastus' }}
+          Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus2' }}
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          Parameters__admin_password: ${{ secrets.ADMIN_PASSWORD }}
           Parameters__cache_password: ${{ secrets.CACHE_PASSWORD }}
-          Parameters__postgres_username: ${{ secrets.POSTGRES_USER }}
-          Parameters__postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}

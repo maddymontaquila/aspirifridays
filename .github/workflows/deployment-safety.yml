@@ -1,0 +1,30 @@
+name: Deployment safety
+
+on:
+  pull_request:
+    branches: [main, live]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  production_safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Aspire CLI
+        run: curl -sSL https://aspire.dev/install.sh | bash
+      - name: Add Aspire CLI to PATH
+        run: echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
+      - name: Test credential encoding and safety guard
+        run: |
+          dotnet test --project ./src/BingoBoard.Admin.Tests/BingoBoard.Admin.Tests.csproj --configuration Release
+          dotnet build ./deployment/deploy.cs
+          python3 -B -m unittest discover -s deployment -p 'test_*.py'
+      - name: Guard routine production deployment without credentials or Azure login
+        run: bash ./deployment/validate-publish.sh "$RUNNER_TEMP/production-safety"
