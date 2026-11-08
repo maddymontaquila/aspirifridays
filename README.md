@@ -26,11 +26,51 @@ aspire start
 
 That's it. Aspire handles spinning up PostgreSQL, Redis, the admin panel, and the Vue client.
 
+## Deployment safety
+
+The AppHost remains on Aspire 13.5.3. Its local-only MAUI hosting integration
+uses the published 13.1.1 preview because the previous preview pin is unavailable.
+
+The producer console is local-only and exits when standard input closes.
+Azure publishing explicitly sets the shared Container Apps environment's log
+destination to `none`, preserving disabled ingestion rather than re-enabling
+logging on deployment. This disables shared app/system log ingestion, not just
+producer logs. The existing Log Analytics workspace and its history are retained,
+with a 1 GB/day cap and 30-day retention; no shared workspace is deleted.
+Daily caps can be exceeded before ingestion stops; budget alerts do not stop resources.
+
+PostgreSQL and the migration worker are local-only. Routine production publishing
+must not provision or modify PostgreSQL, rotate database credentials, write
+database Key Vault secrets, or run migrations. Local runs retain generated
+container credentials, migrations, square seeding, and admin-password updates.
+Omitted resources are not deleted by incremental deployment; previously deployed
+workers require separately approved cleanup if still present.
+
+Production admin uses an external `AddConnectionString("db")` input. CI constructs
+`ConnectionStrings__db` from the existing `POSTGRES_USER` and `POSTGRES_PASSWORD`
+GitHub secrets, the existing server `postgres-vevsoulyfzw2y.postgres.database.azure.com`,
+and database `db`, using Npgsql's connection-string builder to safely encode
+credentials and enforce `SSL Mode=VerifyFull`. The connection is passed as a
+secure Container App parameter, not read from or written to Key Vault. There is
+no generated-credential or old-vault-secret fallback.
+
+The deployment safety workflow generates a production manifest and Bicep without
+Azure login or credentials, rejecting database/Key Vault modules and published
+producer/migration workers, re-enabled environment log ingestion, or changed
+workspace cap/retention. The same guard runs before routine deployment.
+
+The `live` deployment workflow verifies the personal Bingo subscription, tenant,
+resource group, and region before deployment. It also requires the configured
+cache password to match the existing Redis secret, so a stale CI secret cannot
+reset that credential. Target or credential mismatches fail without printing
+secret values.
+
 ## Deployed Admin Access
 
 Sign in at https://admin.aspireify.live/login using the deployed admin password.
-To recover access, update the GitHub Actions `ADMIN_PASSWORD` secret and redeploy
-the intended `live` revision. See the [admin access and recovery guide](src/BingoBoard.Admin/README.md#deployed-admin-access-and-password-recovery)
+Updating GitHub Actions `ADMIN_PASSWORD` or running a routine deployment does not
+reset the deployed account. Recovery needs a separately approved controlled run.
+See the [admin access and recovery guide](src/BingoBoard.Admin/README.md#deployed-admin-access-and-password-recovery)
 for the full procedure and login error troubleshooting.
 
 ## Project Structure

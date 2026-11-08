@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="../../deployment/ExistingDatabaseConnection.cs" Link="ExistingDatabaseConnection.cs" />
   </ItemGroup>
 
 </Project>

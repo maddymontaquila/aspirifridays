@@ -94,41 +94,45 @@ BingoBoard.Admin/
 The deployed admin panel is at https://admin.aspireify.live/login. Password
 sign-in uses the single `admin` account; no username is required.
 
-The production password comes from the repository's GitHub Actions secret
-`ADMIN_PASSWORD`, not local AppHost configuration. The deployment passes it to
-the migration service as `Authentication__AdminPassword`. Migrations create the
-admin account if needed or update its password when the configured value changes.
+The deployed password is the password last set on the `admin` database account.
+Routine production deployments do not run migrations or pass
+`ADMIN_PASSWORD` to a worker. Updating that GitHub Actions secret does not update
+the account, and redeploying does not reset it.
 
 To reset a forgotten password:
 
 1. Open the repository's **Settings > Secrets and variables > Actions** and
    update `ADMIN_PASSWORD` with a new, strong, unique password. Store it in a
    password manager; do not put it in source code, logs, or issues.
-2. Open **Actions > Aspire Deploy CI/CD**, select the run for the intended `live`
-   revision, and choose **Re-run all jobs**. Alternatively, push the intended
-   deployment changes to `live` to trigger a new run. Updating the secret alone
-   does not change the deployed password.
-3. Wait for deployment and the migration service to complete successfully, then
-   sign in with the new password. Password rotation changes the admin security
-   stamp, so existing sessions will be invalidated when it is next validated.
+2. Obtain separate approval for a controlled account recovery run against the
+   existing database, with the intended revision, backup/rollback plan, and
+   database access scope reviewed. The migration service can create/update the
+   account, but also applies schema migrations and seeds squares: do not run it
+   against production as an unreviewed password-reset shortcut.
+3. After the approved recovery updates the account successfully, sign in with
+   the new password. Password rotation changes the admin security stamp, so
+   existing sessions will be invalidated when it is next validated.
 
-This recovery flow requires permission to update repository secrets and run
-deployments. There is no public forgot-password endpoint or email reset flow.
+No automated production recovery path is provided by this corrective change.
+The updated `ADMIN_PASSWORD` still requires that separately approved recovery;
+a routine deployment is not sufficient. There is no public forgot-password
+endpoint or email reset flow.
 Do not delete the database or admin account to reset access.
 
 #### Login Troubleshooting
 
 - `error=invalid`: credentials were rejected; use the deployed password or the
   recovery procedure above.
-- `error=no-user`: the admin account was not found; inspect migration logs.
+- `error=no-user`: the admin account was not found; request controlled recovery,
+  not a routine deployment.
 - `error=passkey-error`: passkey authentication failed; try password sign-in.
 - `error=unexpected`: the login handler caught a server exception, not an
   ordinary password rejection. Inspect the deployed `boardadmin` console logs
   for `Unhandled exception during login.` and its stack trace. A password reset
   is not a substitute for diagnosing this error.
 
-Published deployments explicitly use `SSL Mode=VerifyFull` for both the admin
-and migration database connections. This requires TLS and validates the Azure
+Published admin connections explicitly use `SSL Mode=VerifyFull`; migrations
+are not published. This requires TLS and validates the Azure
 PostgreSQL server certificate and hostname. Local Aspire runs retain their
 container connection settings. Do not disable PostgreSQL's
 `require_secure_transport` setting to work around connection failures.
@@ -136,16 +140,16 @@ container connection settings. Do not disable PostgreSQL's
 Production database credentials are separate from `ADMIN_PASSWORD`. Set the
 repository's `POSTGRES_USER` and `POSTGRES_PASSWORD` Actions secrets to the
 existing PostgreSQL administrator login and its current password. The workflow
-passes these as `Parameters__postgres_username` and
-`Parameters__postgres_password`; published AppHosts require them rather than
-generating replacement credentials on each deployment. Azure does not rename
-an existing server's administrator to match a newly generated username.
+uses Npgsql's connection-string builder to construct an external
+`ConnectionStrings__db` input with the existing server hostname and database `db`.
+Quotes, semicolons, and other credential punctuation are encoded by the builder,
+not shell interpolation. No PostgreSQL infrastructure or Key Vault database
+secrets are managed by routine publishing, and there is no vault-secret fallback.
 
-When rotating the database password, update the server, both apps' database
-connection secrets, and `POSTGRES_PASSWORD` together. Keep `POSTGRES_USER`
-aligned with the server's existing administrator login. Subsequent deployments
-must include this workflow configuration; rerunning an older revision without
-it can reintroduce credential drift.
+Database credential rotation is a separate, explicitly approved operation, not
+part of deployment or admin account recovery. Keep the existing GitHub credentials
+aligned with the server's actual login. Do not rerun an older deployment revision
+that provisions PostgreSQL or writes database Key Vault secrets.
 
 ### Development
 - Uses in-memory distributed cache

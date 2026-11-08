@@ -20,8 +20,14 @@ while (true)
 {
     Console.Write("\nproducer> ");
 
-    var input = Console.ReadLine()?.Trim();
-    if (string.IsNullOrEmpty(input))
+    var input = Console.ReadLine();
+    if (input is null)
+    {
+        return;
+    }
+
+    input = input.Trim();
+    if (input.Length == 0)
     {
         continue;
     }
