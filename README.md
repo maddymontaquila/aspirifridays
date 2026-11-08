@@ -17,14 +17,34 @@ A bingo board that viewers can play along with during a live stream. Each player
 
 ## Running Locally
 
-**Prerequisites:** .NET 10+, Node.js, Docker
+**Prerequisites:** .NET 10+, Aspire CLI 13.6.4, Node.js, Docker, and Chrome or Edge for browser logs.
 
 ```bash
-cd src
+aspire secret set Parameters:admin-password "<your-local-demo-password>"
 aspire start
 ```
 
 That's it. Aspire handles spinning up PostgreSQL, Redis, the admin panel, and the Vue client.
+
+## .NET Conf demo (Aspire 13.6.4)
+
+The AppHost uses stable 13.6.4 packages with matching browser logs, EF Core, and MAUI previews.
+Use `aspire start --isolated` in a worktree; supply the admin password in that isolated
+run's dashboard when prompted.
+
+1. Open `bingoboard-dev` for the player board and `boardadmin` for the Blazor admin panel.
+2. Under `bingoboard-dev-browser-logs`, choose **Open tracked browser**, then interact
+   with the player board to see browser console and network events in the dashboard.
+3. Open `ef-migrations` for **Get Database Status** or **Update Database**.
+   Migrations live in `BingoBoard.Data`; commands use the running app's database connection.
+   The existing migration service still applies migrations and seeds the admin user and squares
+   at startup. Do not remove migrations or drop the database during the live demo.
+4. Use the `producer-console` terminal: `status`, `call <square-id>`, `clear <square-id>`.
+
+Azure publishing configuration and the opt-in MAUI launch profile are preserved.
+The `bingoboard` YARP resource remains explicitly started; the local player board runs on Vite.
+`global.json` selects a stable .NET 10 SDK, and the EF tool is pinned to the app's EF Core
+version so a newer installed SDK or tool cannot change the demo's target framework.
 
 ## Project Structure
 

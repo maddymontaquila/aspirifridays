@@ -11,8 +11,8 @@ namespace BingoBoard.Data;
 /// <remarks>
 /// This class gets automatically discovered while running migrations.
 /// When running the app normally, the connection string gets supplied by the Aspire app host,
-/// but the app host does not run during migrations. This class uses a temporary connection
-/// string so database migration can succeed.
+/// but the app host does not run during standalone migrations. Aspire's EF commands supply
+/// the connection through the environment; standalone migration generation uses a placeholder.
 /// </remarks>
 public class DesignTimeApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
@@ -25,7 +25,7 @@ public class DesignTimeApplicationDbContextFactory : IDesignTimeDbContextFactory
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         optionsBuilder
-            .UseNpgsql(DesignTimeDbConnectionString)
+            .UseNpgsql(Environment.GetEnvironmentVariable("ConnectionStrings__db") ?? DesignTimeDbConnectionString)
             .UseApplicationServiceProvider(services.BuildServiceProvider());
 
         return new ApplicationDbContext(optionsBuilder.Options);

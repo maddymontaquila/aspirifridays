@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env dotnet
-#:sdk Aspire.AppHost.Sdk@13.5.3
+#:sdk Aspire.AppHost.Sdk@13.6.4
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
 #:package Aspire.Hosting.Azure.Redis
@@ -9,11 +9,13 @@
 #:package Aspire.Hosting.Yarp
 #:package Aspire.Hosting.Maui
 #:package Aspire.Hosting.DevTunnels
+#:package Aspire.Hosting.Browsers
+#:package Aspire.Hosting.EntityFrameworkCore
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
 #:include ./apphost/*.cs
 
-#pragma warning disable
+#pragma warning disable ASPIREBROWSERLOGS001, ASPIREPOSTGRES001, ASPIRECSHARPAPPS001, ASPIRETERMINAL001
 
 using Microsoft.Extensions.Hosting;
 
@@ -60,10 +62,15 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithImportSquaresCommand()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
 
+admin.AddEFMigrations("ef-migrations", "BingoBoard.Data.ApplicationDbContext",
+        configureToolResource: tool => tool.WithToolVersion("10.0.12"))
+    .WithMigrationsProject("./BingoBoard.Data/BingoBoard.Data.csproj");
+
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithBuildInfo(buildInfo, prefix: "VITE_")
     .WithReference(admin)
-    .WaitFor(admin);
+    .WaitFor(admin)
+    .WithBrowserLogs();
 
 builder.AddCSharpApp("producer-console", "./producerconsole.cs")
     .WithReference(admin).WaitFor(admin)
