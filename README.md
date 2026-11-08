@@ -32,9 +32,12 @@ The AppHost remains on Aspire 13.5.3. Its local-only MAUI hosting integration
 uses the published 13.1.1 preview because the previous preview pin is unavailable.
 
 The producer console is local-only and exits when standard input closes.
-Azure publishing sets the Bingo Log Analytics workspace to a 1 GB/day ingestion
-cap and 30-day retention. Daily caps can be exceeded before ingestion stops;
-budget alerts do not stop resources.
+Azure publishing explicitly sets the shared Container Apps environment's log
+destination to `none`, preserving disabled ingestion rather than re-enabling
+logging on deployment. This disables shared app/system log ingestion, not just
+producer logs. The existing Log Analytics workspace and its history are retained,
+with a 1 GB/day cap and 30-day retention; no shared workspace is deleted.
+Daily caps can be exceeded before ingestion stops; budget alerts do not stop resources.
 
 PostgreSQL and the migration worker are local-only. Routine production publishing
 must not provision or modify PostgreSQL, rotate database credentials, write
@@ -53,7 +56,8 @@ no generated-credential or old-vault-secret fallback.
 
 The deployment safety workflow generates a production manifest and Bicep without
 Azure login or credentials, rejecting database/Key Vault modules and published
-producer/migration workers. The same guard runs before routine deployment.
+producer/migration workers, re-enabled environment log ingestion, or changed
+workspace cap/retention. The same guard runs before routine deployment.
 
 The `live` deployment workflow verifies the personal Bingo subscription, tenant,
 resource group, and region before deployment. It also requires the configured
