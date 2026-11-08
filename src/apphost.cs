@@ -1,5 +1,6 @@
 ﻿#!/usr/bin/env dotnet
-#:sdk Aspire.AppHost.Sdk@13.6.4
+#:sdk Aspire.AppHost.Sdk@17.1.0-preview.1.26558.1
+#:property AspireUseCliBundle=true
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
 #:package Aspire.Hosting.Azure.Redis
@@ -11,11 +12,12 @@
 #:package Aspire.Hosting.DevTunnels
 #:package Aspire.Hosting.Browsers
 #:package Aspire.Hosting.EntityFrameworkCore
+#:package Aspire.Hosting.Dotnet
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
 #:include ./apphost/*.cs
 
-#pragma warning disable ASPIREBROWSERLOGS001, ASPIREPOSTGRES001, ASPIRECSHARPAPPS001, ASPIRETERMINAL001
+#pragma warning disable ASPIREBROWSERLOGS001, ASPIREPOSTGRES001, ASPIRETERMINAL001
 
 using Microsoft.Extensions.Hosting;
 
@@ -72,9 +74,10 @@ var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WaitFor(admin)
     .WithBrowserLogs();
 
-builder.AddCSharpApp("producer-console", "./producerconsole.cs")
+builder.AddDotnetProject("producer-console", "./producerconsole.cs")
     .WithReference(admin).WaitFor(admin)
-    .WithTerminal();
+    .WithTerminal()
+    .ExcludeFromManifest();
 
 builder.AddYarp("bingoboard")
     .WithConfiguration(c =>

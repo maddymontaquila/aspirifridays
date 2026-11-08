@@ -5,7 +5,9 @@ using BingoBoard.Admin.Endpoints;
 using BingoBoard.Admin.Hubs;
 using BingoBoard.Admin.Services;
 using BingoBoard.Data;
+using Microsoft.AspNetCore.SignalR.StackExchangeRedis;
 using Scalar.AspNetCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,10 +53,15 @@ builder.Services.AddScoped<RedirectManager>();
 
 // Add SignalR
 builder.Services.AddSignalR()
-    .AddStackExchangeRedis(builder.Configuration.GetConnectionString("cache")!);
+    .AddStackExchangeRedis();
 
 // Add Redis with Aspire client for distributed caching and raw Redis access
 builder.AddRedisDistributedCache(connectionName: "cache");
+builder.Services.AddOptions<RedisOptions>()
+    .Configure<IConnectionMultiplexer>((options, connection) =>
+    {
+        options.ConnectionFactory = _ => Task.FromResult(connection);
+    });
 
 // Register custom services
 builder.Services.AddScoped<IBingoService, BingoService>();
