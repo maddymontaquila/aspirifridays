@@ -23,12 +23,6 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var buildInfo = BuildInfo.Load(builder);
 var postgresAzureLocation = builder.Configuration["Azure:PostgresLocation"];
-var postgresUserName = builder.ExecutionContext.IsPublishMode
-    ? builder.AddParameter("postgres-username")
-    : null;
-var postgresPassword = builder.ExecutionContext.IsPublishMode
-    ? builder.AddParameter("postgres-password", secret: true)
-    : null;
 
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
@@ -45,7 +39,6 @@ builder.AddAzureContainerAppEnvironment("env")
         };
     });
 
-var password = builder.AddParameter("admin-password", secret: true);
 var adminDomain = builder.AddParameter("admin-domain", "admin.aspireify.live");
 var adminCertName = builder.AddParameter("admin-cert-name", "admin.aspireify.live-envvevso-251017190301");
 var yarpDomain = builder.AddParameter("yarp-domain", "aspireify.live");
@@ -54,35 +47,33 @@ var yarpCertName = builder.AddParameter("yarp-cert-name", "aspireify.live-envvev
 var cache = builder.AddRedis("cache")
     .PublishAsBingoCache();
 
-var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
-    .ConfigureBingoPostgres(postgresAzureLocation)
-    .WithPasswordAuthentication(userName: postgresUserName, password: postgresPassword)
-    .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
-
-var db = postgres.AddDatabase("db")
-    .WithPostgresMcp();
-
-var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
-    .WithEnvironment("Authentication__AdminPassword", password)
-    .WithReference(db)
-    .WaitFor(db);
-
 var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithReference(cache)
-    .WithReference(db)
-    .WithReference(migrations)
     .WaitFor(cache)
-    .WaitForCompletion(migrations)
     .WithBuildInfo(buildInfo)
     .WithExternalHttpEndpoints()
     .WithImportSquaresCommand()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
 
-if (builder.ExecutionContext.IsPublishMode)
+if (builder.ExecutionContext.IsRunMode)
 {
-    var secureDbConnection = ReferenceExpression.Create($"{db.Resource};SSL Mode=VerifyFull");
-    migrations.WithEnvironment("ConnectionStrings__db", secureDbConnection);
-    admin.WithEnvironment("ConnectionStrings__db", secureDbConnection);
+    var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
+        .ConfigureBingoPostgres(postgresAzureLocation)
+        .WithPasswordAuthentication()
+        .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
+    var db = postgres.AddDatabase("db").WithPostgresMcp();
+    var password = builder.AddParameter("admin-password", secret: true);
+    var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
+        .WithEnvironment("Authentication__AdminPassword", password)
+        .WithReference(db)
+        .WaitFor(db);
+
+    admin.WithReference(db).WithReference(migrations).WaitForCompletion(migrations);
+}
+else
+{
+    // Production owns neither the existing server nor its credentials or schema.
+    admin.WithReference(builder.AddConnectionString("db"));
 }
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
