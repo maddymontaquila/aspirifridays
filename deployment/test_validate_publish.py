@@ -12,6 +12,8 @@ class PublishSafetyTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.manifest = self.root / "manifest.json"
+        self.arm = self.root / "environment.arm.json"
+        self.environment_properties = {"appLogsConfiguration": {"destination": None}}
         self.resources = {
             "db": {
                 "type": "parameter.v0",
@@ -29,7 +31,7 @@ class PublishSafetyTests(unittest.TestCase):
         for name in ("main", "env", "env-acr", "cache", "boardadmin", "bingoboard"):
             (self.root / f"{name}.bicep").write_text("")
         (self.root / "env.bicep").write_text(
-            "appLogsConfiguration: {\ndestination: 'none'\n}\n"
+            "appLogsConfiguration: {\ndestination: null\n}\n"
             "retentionInDays: 30\ndailyQuotaGb: 1\n")
         (self.root / "boardadmin.bicep").write_text(
             "@secure()\nparam db_connectionstring string\n"
@@ -38,7 +40,11 @@ class PublishSafetyTests(unittest.TestCase):
 
     def check(self):
         self.manifest.write_text(json.dumps({"resources": self.resources}))
-        validate(self.manifest, self.root)
+        self.arm.write_text(json.dumps({"resources": [{
+            "type": "Microsoft.App/managedEnvironments",
+            "properties": self.environment_properties,
+        }]}))
+        validate(self.manifest, self.root, self.arm)
 
     def test_accepts_external_connection_and_only_routine_workloads(self):
         self.check()
@@ -67,18 +73,30 @@ class PublishSafetyTests(unittest.TestCase):
             self.check()
         self.resources["boardadmin"]["env"]["ConnectionStrings__db"] = "{db.connectionString}"
         (self.root / "env.bicep").write_text(
-            "appLogsConfiguration: {\ndestination: 'none'\n}\n"
+            "appLogsConfiguration: {\ndestination: null\n}\n"
             "retentionInDays: 90\ndailyQuotaGb: 5\n")
         with self.assertRaises(ValueError):
             self.check()
 
-    def test_rejects_reenabled_or_unspecified_environment_logging(self):
-        for logging in ("", "destination: 'log-analytics'", "destination: 'azure-monitor'",
-                        "destination: 'none'\nlogAnalyticsConfiguration: {}"):
+    def test_accepts_supported_disabled_arm_shapes(self):
+        for properties in (
+                {},
+                {"appLogsConfiguration": None},
+                {"appLogsConfiguration": {}},
+                {"appLogsConfiguration": {"destination": None, "logAnalyticsConfiguration": None}}):
+            with self.subTest(properties=properties):
+                self.environment_properties = properties
+                self.check()
+
+    def test_rejects_invalid_literal_none_or_attached_logging_in_arm(self):
+        for logging in (
+                {"destination": "none"},
+                {"destination": "log-analytics"},
+                {"destination": "azure-monitor"},
+                {"destination": None, "logAnalyticsConfiguration": {}},
+                {"logAnalyticsConfiguration": {"customerId": "synthetic-workspace"}}):
             with self.subTest(logging=logging):
-                (self.root / "env.bicep").write_text(
-                    f"appLogsConfiguration: {{\n{logging}\n}}\n"
-                    "retentionInDays: 30\ndailyQuotaGb: 1\n")
+                self.environment_properties = {"appLogsConfiguration": logging}
                 with self.assertRaisesRegex(ValueError, "ingestion must remain disabled"):
                     self.check()
 
