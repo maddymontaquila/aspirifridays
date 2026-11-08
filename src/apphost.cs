@@ -16,6 +16,7 @@
 #pragma warning disable
 
 using Microsoft.Extensions.Hosting;
+using Azure.Provisioning.AppContainers;
 using Azure.Provisioning.OperationalInsights;
 using Aspire.Hosting.ApplicationModel;
 
@@ -29,6 +30,14 @@ Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 builder.AddAzureContainerAppEnvironment("env")
     .ConfigureInfrastructure(infrastructure =>
     {
+        var environment = infrastructure.GetProvisionableResources()
+            .OfType<ContainerAppManagedEnvironment>()
+            .Single();
+        environment.AppLogsConfiguration = new ContainerAppLogsConfiguration
+        {
+            Destination = "none"
+        };
+
         var workspace = infrastructure.GetProvisionableResources()
             .OfType<OperationalInsightsWorkspace>()
             .Single();

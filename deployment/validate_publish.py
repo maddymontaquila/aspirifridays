@@ -50,6 +50,11 @@ def validate(manifest_path, publish_path):
     if not all(re.search(pattern, admin_bicep) for pattern in required):
         raise ValueError("Admin database connection must flow through a secure external Bicep parameter.")
     env = next(file.read_text() for file in files if file.stem == "env")
+    destinations = re.findall(r"\bdestination:\s*'([^']*)'", env)
+    if (destinations != ["none"]
+            or not re.search(r"appLogsConfiguration:\s*\{\s*destination:\s*'none'\s*\}", env)
+            or "logAnalyticsConfiguration:" in env):
+        raise ValueError("Production environment log ingestion must remain disabled.")
     if not (re.search(r"retentionInDays:\s*30\b", env)
             and re.search(r"dailyQuotaGb:\s*1\b", env)):
         raise ValueError("Production log retention/cap safeguards changed.")

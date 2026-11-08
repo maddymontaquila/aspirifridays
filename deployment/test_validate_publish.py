@@ -28,7 +28,9 @@ class PublishSafetyTests(unittest.TestCase):
         }
         for name in ("main", "env", "env-acr", "cache", "boardadmin", "bingoboard"):
             (self.root / f"{name}.bicep").write_text("")
-        (self.root / "env.bicep").write_text("retentionInDays: 30\ndailyQuotaGb: 1\n")
+        (self.root / "env.bicep").write_text(
+            "appLogsConfiguration: {\ndestination: 'none'\n}\n"
+            "retentionInDays: 30\ndailyQuotaGb: 1\n")
         (self.root / "boardadmin.bicep").write_text(
             "@secure()\nparam db_connectionstring string\n"
             "name: 'connectionstrings--db'\nvalue: db_connectionstring\n"
@@ -64,9 +66,21 @@ class PublishSafetyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.check()
         self.resources["boardadmin"]["env"]["ConnectionStrings__db"] = "{db.connectionString}"
-        (self.root / "env.bicep").write_text("retentionInDays: 90\ndailyQuotaGb: 5\n")
+        (self.root / "env.bicep").write_text(
+            "appLogsConfiguration: {\ndestination: 'none'\n}\n"
+            "retentionInDays: 90\ndailyQuotaGb: 5\n")
         with self.assertRaises(ValueError):
             self.check()
+
+    def test_rejects_reenabled_or_unspecified_environment_logging(self):
+        for logging in ("", "destination: 'log-analytics'", "destination: 'azure-monitor'",
+                        "destination: 'none'\nlogAnalyticsConfiguration: {}"):
+            with self.subTest(logging=logging):
+                (self.root / "env.bicep").write_text(
+                    f"appLogsConfiguration: {{\n{logging}\n}}\n"
+                    "retentionInDays: 30\ndailyQuotaGb: 1\n")
+                with self.assertRaisesRegex(ValueError, "ingestion must remain disabled"):
+                    self.check()
 
 
 if __name__ == "__main__":
