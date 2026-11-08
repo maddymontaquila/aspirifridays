@@ -26,6 +26,13 @@ aspire start
 
 That's it. Aspire handles spinning up PostgreSQL, Redis, the admin panel, and the Vue client.
 
+## Deployed Admin Access
+
+Sign in at https://admin.aspireify.live/login using the deployed admin password.
+To recover access, update the GitHub Actions `ADMIN_PASSWORD` secret and redeploy
+the intended `live` revision. See the [admin access and recovery guide](src/BingoBoard.Admin/README.md#deployed-admin-access-and-password-recovery)
+for the full procedure and login error troubleshooting.
+
 ## Project Structure
 
 ```

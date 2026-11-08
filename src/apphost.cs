@@ -16,11 +16,18 @@
 #pragma warning disable
 
 using Microsoft.Extensions.Hosting;
+using Aspire.Hosting.ApplicationModel;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
 var buildInfo = BuildInfo.Load(builder);
 var postgresAzureLocation = builder.Configuration["Azure:PostgresLocation"];
+var postgresUserName = builder.ExecutionContext.IsPublishMode
+    ? builder.AddParameter("postgres-username")
+    : null;
+var postgresPassword = builder.ExecutionContext.IsPublishMode
+    ? builder.AddParameter("postgres-password", secret: true)
+    : null;
 
 Console.WriteLine($"Environment name: {builder.Environment.EnvironmentName}");
 
@@ -37,7 +44,7 @@ var cache = builder.AddRedis("cache")
 
 var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
     .ConfigureBingoPostgres(postgresAzureLocation)
-    .WithPasswordAuthentication()
+    .WithPasswordAuthentication(userName: postgresUserName, password: postgresPassword)
     .RunAsContainer(container => container.WithLifetime(ContainerLifetime.Persistent));
 
 var db = postgres.AddDatabase("db")
@@ -59,6 +66,13 @@ var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
     .WithExternalHttpEndpoints()
     .WithImportSquaresCommand()
     .PublishAsBingoAdmin(adminDomain, adminCertName);
+
+if (builder.ExecutionContext.IsPublishMode)
+{
+    var secureDbConnection = ReferenceExpression.Create($"{db.Resource};SSL Mode=VerifyFull");
+    migrations.WithEnvironment("ConnectionStrings__db", secureDbConnection);
+    admin.WithEnvironment("ConnectionStrings__db", secureDbConnection);
+}
 
 var frontend = builder.AddViteApp("bingoboard-dev", "./bingo-board")
     .WithBuildInfo(buildInfo, prefix: "VITE_")
