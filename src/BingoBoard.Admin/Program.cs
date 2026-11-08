@@ -4,6 +4,7 @@ using BingoBoard.Admin.Components;
 using BingoBoard.Admin.Endpoints;
 using BingoBoard.Admin.Hubs;
 using BingoBoard.Admin.Services;
+using BingoBoard.Data;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,7 +30,7 @@ builder.Services.AddOpenApi();
 // Add validation support
 builder.Services.AddValidation();
 
-builder.AddApplicationDbContext();
+builder.AddNpgsqlDbContext<ApplicationDbContext>("db");
 
 builder.Services.AddDefaultIdentity()
     .AddSignInManager()
