@@ -36,24 +36,33 @@ Azure publishing sets the Bingo Log Analytics workspace to a 1 GB/day ingestion
 cap and 30-day retention. Daily caps can be exceeded before ingestion stops;
 budget alerts do not stop resources.
 
-The migration worker runs automatically only during local orchestration.
-Production deployment assumes the existing database is initialized and does not
-publish or start the migration Container App. Schema changes require a separate,
-controlled migration run with the existing credentials. Omitted resources are
-not deleted by incremental deployment; verify the producer is absent and any
-previously deployed migration app remains stopped before deployment.
+The migration worker is published again and runs during orchestration to apply
+schema migrations, seed missing default squares, and create or update the admin
+password. Existing squares are preserved. Changing `ADMIN_PASSWORD` alone does
+not update the account; the next successful deployment and migration run applies
+it. Omitted resources are not deleted by incremental deployment; verify the
+producer is absent before deployment.
 
-Production reads the existing `connectionstrings--db` Key Vault secret using
-the app's managed identity. It does not deploy PostgreSQL or write database
-secrets. The `existing-postgres-key-vault` parameter selects the existing vault
-in the deployment resource group; local orchestration still uses containerized
-PostgreSQL and runs migrations.
+Production now uses Aspire's PostgreSQL resource and connection-secret wiring
+instead of reading the existing `connectionstrings--db` Key Vault secret directly.
+Deployment requires `POSTGRES_USER` and `POSTGRES_PASSWORD` to match the existing
+server's administrator credentials; it must not generate replacement credentials.
+Both admin and migrations use `SSL Mode=VerifyFull` in published deployments.
+Local orchestration retains Aspire-generated container credentials and connection
+settings.
 
 The `live` deployment workflow verifies the personal Bingo subscription, tenant,
 resource group, and region before deployment. It also requires the configured
 cache password to match the existing Redis secret, so a stale CI secret cannot
 reset that credential. Target or credential mismatches fail without printing
 secret values.
+
+## Deployed Admin Access
+
+Sign in at https://admin.aspireify.live/login using the deployed admin password.
+To recover access, update the GitHub Actions `ADMIN_PASSWORD` secret and redeploy
+the intended `live` revision. See the [admin access and recovery guide](src/BingoBoard.Admin/README.md#deployed-admin-access-and-password-recovery)
+for the full procedure and login error troubleshooting.
 
 ## Project Structure
 

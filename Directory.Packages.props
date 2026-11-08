@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Aspire packages -->
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.5.3" />
     <PackageVersion Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.Azure.PostgreSQL" Version="13.5.3" />
