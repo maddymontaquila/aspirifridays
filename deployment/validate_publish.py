@@ -6,7 +6,7 @@ import re
 import sys
 
 
-def validate(manifest_path, publish_path):
+def validate(manifest_path, publish_path, environment_arm_path):
     resources = json.loads(Path(manifest_path).read_text())["resources"]
     forbidden = ("postgres", "migration", "producer", "keyvault", "key-vault")
     for name, resource in resources.items():
@@ -50,10 +50,18 @@ def validate(manifest_path, publish_path):
     if not all(re.search(pattern, admin_bicep) for pattern in required):
         raise ValueError("Admin database connection must flow through a secure external Bicep parameter.")
     env = next(file.read_text() for file in files if file.stem == "env")
-    destinations = re.findall(r"\bdestination:\s*'([^']*)'", env)
-    if (destinations != ["none"]
-            or not re.search(r"appLogsConfiguration:\s*\{\s*destination:\s*'none'\s*\}", env)
-            or "logAnalyticsConfiguration:" in env):
+    template = json.loads(Path(environment_arm_path).read_text())
+    environments = [
+        resource for resource in template["resources"]
+        if resource["type"].lower() == "microsoft.app/managedenvironments"
+    ]
+    if len(environments) != 1:
+        raise ValueError("Expected exactly one compiled production environment.")
+    logging = environments[0]["properties"].get("appLogsConfiguration")
+    if logging is not None and (
+            not isinstance(logging, dict)
+            or logging.get("destination") is not None
+            or logging.get("logAnalyticsConfiguration") is not None):
         raise ValueError("Production environment log ingestion must remain disabled.")
     if not (re.search(r"retentionInDays:\s*30\b", env)
             and re.search(r"dailyQuotaGb:\s*1\b", env)):
@@ -62,7 +70,7 @@ def validate(manifest_path, publish_path):
 
 if __name__ == "__main__":
     try:
-        validate(sys.argv[1], sys.argv[2])
+        validate(sys.argv[1], sys.argv[2], sys.argv[3])
     except ValueError as error:
         sys.exit(f"::error::{error}")
     except (KeyError, OSError, IndexError):

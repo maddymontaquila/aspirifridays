@@ -33,7 +33,8 @@ uses the published 13.1.1 preview because the previous preview pin is unavailabl
 
 The producer console is local-only and exits when standard input closes.
 Azure publishing explicitly sets the shared Container Apps environment's log
-destination to `none`, preserving disabled ingestion rather than re-enabling
+destination to JSON `null` (the representation of the CLI's `none` option),
+preserving disabled ingestion rather than re-enabling
 logging on deployment. This disables shared app/system log ingestion, not just
 producer logs. The existing Log Analytics workspace and its history are retained,
 with a 1 GB/day cap and 30-day retention; no shared workspace is deleted.
@@ -54,10 +55,14 @@ credentials and enforce `SSL Mode=VerifyFull`. The connection is passed as a
 secure Container App parameter, not read from or written to Key Vault. There is
 no generated-credential or old-vault-secret fallback.
 
-The deployment safety workflow generates a production manifest and Bicep without
-Azure login or credentials, rejecting database/Key Vault modules and published
+The deployment safety workflow generates a production manifest and Bicep and
+compiles the environment Bicep to ARM JSON without Azure login or credentials,
+rejecting database/Key Vault modules and published
 producer/migration workers, re-enabled environment log ingestion, or changed
-workspace cap/retention. The same guard runs before routine deployment.
+workspace cap/retention. Logging checks inspect the compiled ARM shape: null or
+absent destination/configuration is disabled; the literal string `"none"` is
+invalid and rejected, as are attached logging sinks. The same guard runs before
+routine deployment.
 
 The `live` deployment workflow verifies the personal Bingo subscription, tenant,
 resource group, and region before deployment. It also requires the configured

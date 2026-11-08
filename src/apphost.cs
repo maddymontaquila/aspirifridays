@@ -16,6 +16,7 @@
 #pragma warning disable
 
 using Microsoft.Extensions.Hosting;
+using Azure.Provisioning;
 using Azure.Provisioning.AppContainers;
 using Azure.Provisioning.OperationalInsights;
 using Aspire.Hosting.ApplicationModel;
@@ -35,7 +36,8 @@ builder.AddAzureContainerAppEnvironment("env")
             .Single();
         environment.AppLogsConfiguration = new ContainerAppLogsConfiguration
         {
-            Destination = "none"
+            // Azure's CLI "none" option sends a JSON null, not the string "none".
+            Destination = new BicepValue<string>(literal: null)
         };
 
         var workspace = infrastructure.GetProvisionableResources()
