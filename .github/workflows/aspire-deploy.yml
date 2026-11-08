@@ -75,7 +75,12 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
       - name: Deploy with Aspire
-        run: aspire deploy --apphost ./src/apphost.cs --environment Production --non-interactive
+        run: |
+          if [ -z "$Parameters__postgres_username" ] || [ -z "$Parameters__postgres_password" ]; then
+            echo "::error::Set POSTGRES_USER and POSTGRES_PASSWORD to the existing PostgreSQL administrator credentials before deploying."
+            exit 1
+          fi
+          aspire deploy --apphost ./src/apphost.cs --environment Production --non-interactive
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
           DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -90,3 +95,5 @@ jobs:
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
           Parameters__admin_password: ${{ secrets.ADMIN_PASSWORD }}
           Parameters__cache_password: ${{ secrets.CACHE_PASSWORD }}
+          Parameters__postgres_username: ${{ secrets.POSTGRES_USER }}
+          Parameters__postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
