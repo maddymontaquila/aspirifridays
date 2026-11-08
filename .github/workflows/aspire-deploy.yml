@@ -47,9 +47,13 @@ jobs:
       - name: Validate release
         run: |
           dotnet test --project ./src/BingoBoard.Admin.Tests/BingoBoard.Admin.Tests.csproj --configuration Release
+          python3 -B -m unittest discover -s deployment -p 'test_*.py'
           npm ci --prefix ./src/bingo-board
           npm audit --prefix ./src/bingo-board --audit-level=high
           npm run build --prefix ./src/bingo-board
+
+      - name: Guard routine production deployment
+        run: bash ./deployment/validate-publish.sh "$RUNNER_TEMP/production-safety"
       
       - name: Set version information
         run: |
@@ -108,12 +112,7 @@ jobs:
           unset existing_cache_password
       
       - name: Deploy with Aspire
-        run: |
-          if [ -z "$Parameters__postgres_username" ] || [ -z "$Parameters__postgres_password" ]; then
-            echo "::error::Set POSTGRES_USER and POSTGRES_PASSWORD to the existing PostgreSQL administrator credentials before deploying."
-            exit 1
-          fi
-          aspire deploy --apphost ./src/apphost.cs --environment Production --non-interactive
+        run: dotnet run ./deployment/deploy.cs
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
           DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -124,9 +123,7 @@ jobs:
           DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
           Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           Azure__Location: ${{ secrets.AZURE_LOCATION || 'eastus2' }}
-          Azure__PostgresLocation: ${{ secrets.AZURE_POSTGRES_LOCATION || secrets.AZURE_LOCATION || 'eastus2' }}
           Azure__ResourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          Parameters__admin_password: ${{ secrets.ADMIN_PASSWORD }}
           Parameters__cache_password: ${{ secrets.CACHE_PASSWORD }}
-          Parameters__postgres_username: ${{ secrets.POSTGRES_USER }}
-          Parameters__postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
