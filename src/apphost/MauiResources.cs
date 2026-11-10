@@ -1,11 +1,12 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Dotnet;
 
 internal static class MauiResources
 {
     public static void AddBingoMauiClients(
         this IDistributedApplicationBuilder builder,
-        IResourceBuilder<ProjectResource> admin)
+        IResourceBuilder<DotnetProjectResource> admin)
     {
         var launchProfile = builder.Configuration["DOTNET_LAUNCH_PROFILE"];
         if (!string.Equals(launchProfile, "maui", StringComparison.OrdinalIgnoreCase))

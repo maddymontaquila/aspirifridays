@@ -5,6 +5,7 @@ using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
 using Aspire.Hosting.Yarp;
+using Aspire.Hosting.Dotnet;
 
 #pragma warning disable ASPIREACADOMAINS001
 
@@ -64,7 +65,7 @@ internal static class DeploymentExtensions
         this IResourceBuilder<T> admin,
         IResourceBuilder<ParameterResource> domain,
         IResourceBuilder<ParameterResource> certificateName)
-        where T : ProjectResource
+        where T : DotnetProjectResource
     {
         return admin.PublishAsAzureContainerApp((_, app) =>
         {

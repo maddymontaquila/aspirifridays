@@ -1,10 +1,10 @@
 ﻿#!/usr/bin/env dotnet
-#:sdk Aspire.AppHost.Sdk@17.1.0-preview.1.26558.1
-#:property AspireUseCliBundle=true
+#:package Aspire.Hosting.AppHost
 #:package Aspire.Hosting.Azure.AppContainers
 #:package Aspire.Hosting.Azure.PostgreSQL
 #:package Aspire.Hosting.Azure.Redis
 #:package Aspire.Hosting.Docker
+#:package Aspire.Hosting.Dotnet
 #:package Aspire.Hosting.Redis
 #:package Aspire.Hosting.JavaScript
 #:package Aspire.Hosting.Yarp
@@ -12,9 +12,6 @@
 #:package Aspire.Hosting.DevTunnels
 #:package Aspire.Hosting.Browsers
 #:package Aspire.Hosting.EntityFrameworkCore
-#:package Aspire.Hosting.Dotnet
-#:project ./BingoBoard.Admin
-#:project ./BingoBoard.MigrationService
 #:include ./apphost/*.cs
 
 #pragma warning disable ASPIREBROWSERLOGS001, ASPIREPOSTGRES001, ASPIRETERMINAL001
@@ -47,13 +44,12 @@ var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
 var db = postgres.AddDatabase("db")
     .WithPostgresMcp();
 
-var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
+var migrations = builder.AddDotnetProject("migrations", "./BingoBoard.MigrationService/")
     .WithEnvironment("Authentication__AdminPassword", password)
     .WithReference(db)
     .WaitFor(db);
 
-
-var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
+var admin = builder.AddDotnetProject("boardadmin", "./BingoBoard.Admin/")
     .WithReference(cache)
     .WithReference(db)
     .WithReference(migrations)
