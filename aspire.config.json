@@ -1,5 +1,15 @@
 {
+  "$schema": "https://aspire.dev/reference/cli/configuration/schema.json",
+  "configSource": {
+    "optOut": true,
+    "repository": "",
+    "path": ""
+  },
   "appHost": {
     "path": "src/apphost.cs"
-  }
+  },
+  "sdk": {
+    "version": "17.1.0-preview.1.26560.4"
+  },
+  "channel": "daily"
 }
