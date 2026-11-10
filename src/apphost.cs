@@ -1,17 +1,17 @@
 ﻿#!/usr/bin/env dotnet
-#:package Aspire.Hosting.AppHost
-#:package Aspire.Hosting.Azure.AppContainers
-#:package Aspire.Hosting.Azure.PostgreSQL
-#:package Aspire.Hosting.Azure.Redis
-#:package Aspire.Hosting.Docker
-#:package Aspire.Hosting.Dotnet
-#:package Aspire.Hosting.Redis
-#:package Aspire.Hosting.JavaScript
-#:package Aspire.Hosting.Yarp
-#:package Aspire.Hosting.Maui
-#:package Aspire.Hosting.DevTunnels
-#:package Aspire.Hosting.Browsers
-#:package Aspire.Hosting.EntityFrameworkCore
+#:package Aspire.Hosting.AppHost@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Azure.AppContainers@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Azure.PostgreSQL@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Azure.Redis@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Docker@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Dotnet@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Redis@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.JavaScript@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Yarp@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Maui@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.DevTunnels@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Browsers@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.EntityFrameworkCore@17.1.0-preview.1.26558.1
 #:include ./apphost/*.cs
 
 #pragma warning disable ASPIREBROWSERLOGS001, ASPIREPOSTGRES001, ASPIRETERMINAL001

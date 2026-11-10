@@ -1,13 +1,14 @@
-#:sdk Aspire.AppHost.Sdk@13.3.0
-#:package Aspire.Hosting.Azure.AppContainers
-#:package Aspire.Hosting.Azure.PostgreSQL
-#:package Aspire.Hosting.Azure.Redis
-#:package Aspire.Hosting.Docker
-#:package Aspire.Hosting.Redis
-#:package Aspire.Hosting.JavaScript
-#:package Aspire.Hosting.Yarp
-#:package Aspire.Hosting.Maui
-#:package Aspire.Hosting.DevTunnels
+#!/usr/bin/env dotnet
+#:package Aspire.Hosting.AppHost@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Azure.AppContainers@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Azure.PostgreSQL@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Azure.Redis@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Docker@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Redis@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.JavaScript@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Yarp@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.Maui@17.1.0-preview.1.26558.1
+#:package Aspire.Hosting.DevTunnels@17.1.0-preview.1.26558.1
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
 
@@ -88,14 +89,14 @@ var db = postgres.AddDatabase("db");
 #endregion
 
 #region Migrations
-var migrations = builder.AddProject<Projects.BingoBoard_MigrationService>("migrations")
+var migrations = builder.AddCSharpApp("migrations", "./BingoBoard.MigrationService/")
     .WithEnvironment("Authentication__AdminPassword", password)
     .WithReference(db)
     .WaitFor(db);
 #endregion
 
 #region Admin (Blazor Site + SignalR Hub)
-var admin = builder.AddProject<Projects.BingoBoard_Admin>("boardadmin")
+var admin = builder.AddCSharpApp("boardadmin", "./BingoBoard.Admin/")
     .WithReference(cache)
     .WithReference(db)
     .WithReference(migrations)
