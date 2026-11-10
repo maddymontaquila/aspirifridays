@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Preserve the C# defaults, which are otherwise applied after this file is imported. -->
+    <NoWarn Condition="'$(NoWarn)' == ''">1701;1702</NoWarn>
+    <NoWarn>$(NoWarn);ASPIREACADOMAINS001;ASPIREBROWSERLOGS001;ASPIRECSHARPAPPS001;ASPIREPOSTGRES001;ASPIRETERMINAL001</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -1,17 +1,16 @@
+#!/usr/bin/env dotnet
 #:sdk Aspire.AppHost.Sdk@13.3.0
-#:package Aspire.Hosting.Azure.AppContainers
-#:package Aspire.Hosting.Azure.PostgreSQL
-#:package Aspire.Hosting.Azure.Redis
-#:package Aspire.Hosting.Docker
-#:package Aspire.Hosting.Redis
-#:package Aspire.Hosting.JavaScript
-#:package Aspire.Hosting.Yarp
-#:package Aspire.Hosting.Maui
-#:package Aspire.Hosting.DevTunnels
+#:package Aspire.Hosting.Azure.AppContainers@13.6.4
+#:package Aspire.Hosting.Azure.PostgreSQL@13.6.4
+#:package Aspire.Hosting.Azure.Redis@13.6.4
+#:package Aspire.Hosting.Docker@13.6.4
+#:package Aspire.Hosting.Redis@13.6.4
+#:package Aspire.Hosting.JavaScript@13.6.4
+#:package Aspire.Hosting.Yarp@13.6.4
+#:package Aspire.Hosting.Maui@13.6.4-preview.1.26523.11
+#:package Aspire.Hosting.DevTunnels@13.6.4
 #:project ./BingoBoard.Admin
 #:project ./BingoBoard.MigrationService
-
-#pragma warning disable
 
 #region Usings
 using Azure.Core;

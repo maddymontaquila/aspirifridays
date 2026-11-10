@@ -6,8 +6,6 @@ using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
 using Aspire.Hosting.Yarp;
 
-#pragma warning disable ASPIREACADOMAINS001
-
 internal static class DeploymentExtensions
 {
     public static IResourceBuilder<RedisResource> PublishAsBingoCache(
