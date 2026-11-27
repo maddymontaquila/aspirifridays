@@ -1,73 +1,63 @@
+.inline-field {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.inline-field .form-select {
+    min-width: 0;
+    flex: 1;
+}
+
 .bingo-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 2px;
-    max-width: 800px;
-    margin: 0 auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.375rem;
+    max-width: 44rem;
 }
 
 .bingo-square {
-    aspect-ratio: 1;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
+    position: relative;
     display: flex;
+    min-width: 0;
+    aspect-ratio: 1;
     align-items: center;
     justify-content: center;
+    padding: 0.5rem;
+    overflow: hidden;
+    border: 1px solid var(--admin-line);
+    border-radius: 6px;
+    color: var(--admin-text);
+    background: var(--admin-surface);
+    font: inherit;
+    text-align: center;
     cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-    background-color: #f8f9fa;
-    min-height: 100px;
+    transition: border-color 120ms ease, background-color 120ms ease;
 }
 
 .bingo-square:hover {
-    border-color: #007bff;
-    transform: scale(1.02);
+    border-color: var(--aspire-primary);
 }
 
 .bingo-square.checked {
-    background-color: #d4edda;
-    border-color: #28a745;
+    color: #fff;
+    border-color: var(--aspire-purple);
+    background: var(--aspire-purple);
 }
 
-.square-content {
-    text-align: center;
-    padding: 8px;
-    position: relative;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+.bingo-square.square-free:not(.checked) {
+    background: var(--admin-subtle);
 }
 
 .square-text {
-    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+    font-size: clamp(0.6875rem, 1.1vw, 0.8125rem);
     font-weight: 500;
-    line-height: 1.2;
-    word-break: break-word;
+    line-height: 1.25;
 }
 
 .check-mark {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    color: #28a745;
-    font-size: 1.2rem;
-}
-
-.square-bug { border-left: 4px solid #dc3545; }
-.square-dev { border-left: 4px solid #007bff; }
-.square-quote { border-left: 4px solid #6f42c1; }
-.square-oops { border-left: 4px solid #fd7e14; }
-.square-meta { border-left: 4px solid #6c757d; }
-.square-free { border-left: 4px solid #ffc107; background-color: #fff3cd; }
-
-.activity-item {
-    padding: 4px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.activity-item:last-child {
-    border-bottom: none;
+    top: 0.35rem;
+    right: 0.4rem;
+    font-size: 0.625rem;
 }

@@ -58,7 +58,7 @@ export class BingoGameLogic {
     const position = `Row ${row}, Column ${col}`;
     
     if (square.type === 'free') {
-      return `${position}, Free Space with .NET Aspire logo`;
+      return `${position}, Free Space with the Aspire logo`;
     }
     
     const status = square.marked ? 'selected' : 'not selected';
